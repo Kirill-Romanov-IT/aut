@@ -2,7 +2,9 @@ import os
 from contextlib import asynccontextmanager
 from typing import Annotated
 from dotenv import load_dotenv
-from fastapi import FastAPI, Depends, HTTPException, status
+import csv
+import io
+from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 import psycopg
@@ -118,6 +120,52 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "OK"}
+
+@app.post("/upload-csv")
+async def upload_csv(file: UploadFile = File(...), current_user: models.User = Depends(get_current_user)):
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="Invalid file format. Please upload a CSV file.")
+
+    content = await file.read()
+    decoded_content = content.decode('utf-8')
+    csv_reader = csv.DictReader(io.StringIO(decoded_content))
+
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            for row in csv_reader:
+                cur.execute(
+                    """
+                    INSERT INTO clients (
+                        phone_number, user_name, user_surname, clients_company, 
+                        position, agent_name, location_office, direct_extension, previous_call_summary
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        row['phone_number'], row['user_name'], row['user_surname'], row['clients_company'],
+                        row['position'], row['agent_name'], row['location_office'], 
+                        row.get('direct_extension'), row.get('previous_call_summary')
+                    )
+                )
+            conn.commit()
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=f"Error processing CSV: {str(e)}")
+    finally:
+        conn.close()
+
+    return {"message": "CSV uploaded and processed successfully"}
+
+@app.get("/clients", response_model=list[models.Client])
+async def get_clients(current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM clients")
+            clients = cur.fetchall()
+            return [models.Client(**client) for client in clients]
+    finally:
+        conn.close()
 
 @app.get("/health/db")
 def health_db():
