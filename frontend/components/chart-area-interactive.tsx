@@ -6,16 +6,17 @@ import { Area, AreaChart, CartesianGrid, XAxis } from "recharts"
 import { useIsMobile } from "@/hooks/use-mobile"
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
 import {
-  ChartConfig,
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
+  type ChartConfig,
 } from "@/components/ui/chart"
 import {
   Select,
@@ -28,6 +29,9 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@/components/ui/toggle-group"
+
+export const description = "An interactive area chart"
+
 const chartData = [
   { date: "2024-04-01", desktop: 222, mobile: 150 },
   { date: "2024-04-02", desktop: 97, mobile: 180 },
@@ -128,17 +132,17 @@ const chartConfig = {
   },
   desktop: {
     label: "Desktop",
-    color: "hsl(var(--chart-1))",
+    color: "var(--primary)",
   },
   mobile: {
     label: "Mobile",
-    color: "hsl(var(--chart-2))",
+    color: "var(--primary)",
   },
 } satisfies ChartConfig
 
 export function ChartAreaInteractive() {
   const isMobile = useIsMobile()
-  const [timeRange, setTimeRange] = React.useState("30d")
+  const [timeRange, setTimeRange] = React.useState("90d")
 
   React.useEffect(() => {
     if (isMobile) {
@@ -161,36 +165,29 @@ export function ChartAreaInteractive() {
   })
 
   return (
-    <Card className="@container/card">
-      <CardHeader className="relative">
-        <CardTitle>Total Visitors</CardTitle>
-        <CardDescription>
-          <span className="@[540px]/card:block hidden">
+    <Card className="@container/card overflow-hidden">
+      <CardHeader className="relative flex flex-col items-start gap-4 space-y-0 border-b py-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="grid gap-1">
+          <CardTitle>Total Visitors</CardTitle>
+          <CardDescription>
             Total for the last 3 months
-          </span>
-          <span className="@[540px]/card:hidden">Last 3 months</span>
-        </CardDescription>
-        <div className="absolute right-4 top-4">
+          </CardDescription>
+        </div>
+        <div className="flex items-center gap-2">
           <ToggleGroup
             type="single"
             value={timeRange}
             onValueChange={setTimeRange}
             variant="outline"
-            className="@[767px]/card:flex hidden"
+            className="hidden h-9 items-center gap-1 rounded-md border bg-muted/50 p-1 @[767px]/card:flex"
           >
-            <ToggleGroupItem value="90d" className="h-8 px-2.5">
-              Last 3 months
-            </ToggleGroupItem>
-            <ToggleGroupItem value="30d" className="h-8 px-2.5">
-              Last 30 days
-            </ToggleGroupItem>
-            <ToggleGroupItem value="7d" className="h-8 px-2.5">
-              Last 7 days
-            </ToggleGroupItem>
+            <ToggleGroupItem value="90d" className="h-7 px-3 text-xs">Last 3 months</ToggleGroupItem>
+            <ToggleGroupItem value="30d" className="h-7 px-3 text-xs">Last 30 days</ToggleGroupItem>
+            <ToggleGroupItem value="7d" className="h-7 px-3 text-xs">Last 7 days</ToggleGroupItem>
           </ToggleGroup>
           <Select value={timeRange} onValueChange={setTimeRange}>
             <SelectTrigger
-              className="@[767px]/card:hidden flex w-40"
+              className="flex w-[160px] @[767px]/card:hidden"
               aria-label="Select a value"
             >
               <SelectValue placeholder="Last 3 months" />
