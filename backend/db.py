@@ -33,6 +33,17 @@ def init_db():
                     previous_call_summary TEXT
                 );
             """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS companies (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(255) NOT NULL,
+                    domain VARCHAR(255),
+                    industry VARCHAR(100),
+                    country VARCHAR(100),
+                    status VARCHAR(20) DEFAULT 'active',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
             conn.commit()
     finally:
         conn.close()

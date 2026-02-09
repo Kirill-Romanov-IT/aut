@@ -33,3 +33,15 @@ class Client(BaseModel):
 
     class Config:
         extra = "ignore"
+
+class Company(BaseModel):
+    id: Optional[int] = None
+    name: str
+    domain: Optional[str] = None
+    industry: Optional[str] = None
+    country: Optional[str] = None
+    status: Optional[str] = "active"
+    created_at: Optional[str] = None
+
+    class Config:
+        extra = "ignore"
