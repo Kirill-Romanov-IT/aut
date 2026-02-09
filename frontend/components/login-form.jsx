@@ -32,8 +32,7 @@ export function LoginForm({ className, ...props }) {
         try {
             const data = await login(username, password)
             localStorage.setItem("token", data.access_token)
-            // Force a reload or update state to reflect logged in status
-            window.location.reload()
+            router.push("/dashboard")
         } catch (err) {
             setError(err.message)
         } finally {
