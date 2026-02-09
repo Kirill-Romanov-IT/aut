@@ -1,0 +1,80 @@
+# Changelog
+
+Все значимые изменения этого проекта документируются в этом файле.
+
+Формат основан на [Keep a Changelog](https://keepachangelog.com/ru/1.1.0/),  
+версионирование следует [Semantic Versioning](https://semver.org/lang/ru/).
+
+---
+
+## [Unreleased]
+### Added
+- —
+
+### Changed
+- —
+
+### Fixed
+- —
+
+## [0.5.0] - 2026-02-09 14:20 UTC
+**Author:** Kirill Romanov
+
+### Added
+- Объединение git-репозиториев: удалён локальный репозиторий в `frontend/` и инициализирован единый репозиторий в корне проекта.
+
+---
+
+## [0.4.0] - 2026-02-09 14:18 UTC
+**Author:** Kirill Romanov
+
+### Added
+- Создан `.gitignore` в директории `backend/` для игнорирования виртуального окружения, кеша Python и тестов.
+- Настроен корневой `.gitignore` для проекта (игнорирование `node_modules`, `venv`, `.next`, кешей и системных файлов).
+
+---
+
+## [0.3.0] - 2026-02-09 14:15 UTC
+**Author:** Kirill Romanov
+
+### Added
+- Настройка инфраструктуры тестирования для фронтенда и бекенда.
+- Бекенд: установлен `pytest` и `httpx`, созданы тесты для `/` и `/health`.
+- Фронтенд: настроен `Jest` и `React Testing Library`, добавлены тесты рендеринга главной страницы.
+- Конфигурационные файлы: `jest.config.js`, `jest.setup.js` (frontend) и `tests/test_main.py` (backend).
+
+### Fixed
+- Решена проблема совместимости `testing-library` с React 19 через принудительную установку `@testing-library/dom`.
+
+---
+
+## [0.2.0] - 2026-02-09 13:55 UTC
+**Author:** Kirill Romanov
+
+### Added
+- Настройка CORS в FastAPI для разрешения запросов с `http://localhost:3000` и `http://127.0.0.1:3000`.
+- Новый эндпоинт `/health` в FastAPI, возвращающий `{"status": "OK"}`.
+- Интеграция фронтенда: в `page.js` добавлена кнопка «Протестировать связку фронтенда и бэкэнда».
+- Логика запроса (fetch) к бекенду с выводом результата в консоль браузера.
+
+### Changed
+- Главная страница `page.js` преобразована в Client Component (`'use client'`).
+
+---
+
+## [0.1.0] - 2026-02-09 13:42 UTC
+**Author:** Kirill Romanov
+
+### Added
+- Инициализирован минимальный **Next.js** frontend в директории `frontend/`.
+- Заменён стандартный boilerplate на тестовую страницу `Hello from Next.js`.
+- Установлены зависимости frontend-приложения (`npm install`).
+- Инициализирован **FastAPI** backend в директории `backend/`.
+- Создано виртуальное окружение Python (`venv`).
+- Добавлен файл `requirements.txt` с зависимостями `fastapi` и `uvicorn`.
+- Реализован базовый endpoint `GET /` в `main.py`.
+- Проверен локальный запуск backend-сервера через Uvicorn.
+- Проверен локальный запуск frontend-приложения через `npm run dev`.
+
+### Notes
+- Базовая структура проекта готова, интеграция реализована в версии 0.2.0.

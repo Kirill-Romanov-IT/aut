@@ -1,0 +1,21 @@
+# OS files
+.DS_Store
+Thumbs.db
+
+# Dependencies
+node_modules/
+backend/venv/
+backend/.venv/
+
+# Build and cache
+.next/
+backend/__pycache__/
+backend/.pytest_cache/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
