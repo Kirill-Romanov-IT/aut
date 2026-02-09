@@ -1,12 +1,27 @@
 import os
+from contextlib import asynccontextmanager
+from typing import Annotated
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 import psycopg
+from jose import JWTError, jwt
+
+import db
+import models
+import auth
 
 load_dotenv()
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    db.init_db()
+    yield
+
+app = FastAPI(lifespan=lifespan)
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 origins = [
     "http://localhost:3000",
@@ -20,6 +35,81 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        token_data = models.TokenData(username=username)
+    except JWTError:
+        raise credentials_exception
+    
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM users WHERE username = %s", (token_data.username,))
+            user = cur.fetchone()
+            if user is None:
+                raise credentials_exception
+            return models.User(**user)
+    finally:
+        conn.close()
+
+@app.post("/register", response_model=models.User)
+async def register(user: models.UserCreate):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM users WHERE username = %s OR email = %s", (user.username, user.email))
+            if cur.fetchone():
+                raise HTTPException(status_code=400, detail="Username or email already registered")
+            
+            hashed_password = auth.get_password_hash(user.password)
+            cur.execute(
+                "INSERT INTO users (username, email, hashed_password) VALUES (%s, %s, %s) RETURNING id, username, email, is_active",
+                (user.username, user.email, hashed_password)
+            )
+            new_user = cur.fetchone()
+            conn.commit()
+            return models.User(**new_user)
+    except Exception as e:
+        conn.rollback() # Rollback in case of error (though with single statement autocommit isn't an issue, but good practice if logic grows)
+        # Re-raise HTTP exceptions, otherwise wrap or log
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.post("/token", response_model=models.Token)
+async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM users WHERE username = %s", (form_data.username,))
+            user = cur.fetchone()
+            if not user or not auth.verify_password(form_data.password, user["hashed_password"]):
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Incorrect username or password",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            
+            access_token = auth.create_access_token(data={"sub": user["username"]})
+            return {"access_token": access_token, "token_type": "bearer"}
+    finally:
+        conn.close()
+
+@app.get("/users/me", response_model=models.User)
+async def read_users_me(current_user: Annotated[models.User, Depends(get_current_user)]):
+    return current_user
 
 @app.get("/")
 async def root():
