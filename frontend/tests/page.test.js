@@ -1,16 +1,25 @@
 import { render, screen } from '@testing-library/react'
 import Home from '../app/page'
 
+// Mock next/navigation
+jest.mock('next/navigation', () => ({
+    useRouter: () => ({
+        push: jest.fn(),
+    }),
+}))
+
 describe('Home Page', () => {
-    it('renders the integration test button', () => {
+    it('renders the login form heading', () => {
         render(<Home />)
-        const button = screen.getByText(/Протестировать связку фронтенда и бэкэнда/i)
-        expect(button).toBeInTheDocument()
+        const element = screen.getByText(/Acme Inc./i)
+        expect(element).toBeInTheDocument()
     })
 
-    it('renders the main heading', () => {
+    it('renders the login form', () => {
         render(<Home />)
-        const heading = screen.getByText(/Hello from Next.js/i)
-        expect(heading).toBeInTheDocument()
+        // Login form has a "Login" button and a "Login with Google" button
+        const loginButtons = screen.getAllByRole('button', { name: /Login/i })
+        expect(loginButtons.length).toBeGreaterThanOrEqual(1)
+        expect(screen.getByRole('button', { name: /^Login$/i })).toBeInTheDocument()
     })
 })
