@@ -172,6 +172,42 @@ export function CompaniesTable({
         }
     }
 
+    const handleBulkReady = async () => {
+        if (selectedIds.size === 0) return
+
+        const loadingToast = toast.loading("Moving to Ready...")
+        try {
+            const token = localStorage.getItem("token")
+            if (!token) {
+                router.push("/")
+                return
+            }
+
+            const response = await fetch("http://localhost:8000/companies/bulk-ready", {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(Array.from(selectedIds)),
+            })
+
+            if (response.ok) {
+                toast.success(`Successfully moved ${selectedIds.size} companies to Ready`)
+                setSelectedIds(new Set())
+                onUpdate() // Refresh parent state
+            } else {
+                const data = await response.json()
+                toast.error(data.detail || "Failed to move companies")
+            }
+        } catch (error) {
+            console.error("Bulk ready error:", error)
+            toast.error("An error occurred")
+        } finally {
+            toast.dismiss(loadingToast)
+        }
+    }
+
     return (
         <div className="flex flex-col gap-4">
             <div className="rounded-md border bg-card text-card-foreground shadow-sm overflow-hidden min-h-[300px]">
@@ -253,6 +289,15 @@ export function CompaniesTable({
                                                 }}
                                             >
                                                 Enrich Data
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                                className="cursor-pointer"
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    handleBulkReady()
+                                                }}
+                                            >
+                                                Move to Ready
                                             </DropdownMenuItem>
                                             <DropdownMenuItem
                                                 className="text-destructive focus:text-destructive"

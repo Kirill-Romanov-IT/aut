@@ -293,6 +293,12 @@ export default function CompaniesPage() {
         }
     }
 
+    const { notReadyCompanies, readyCompanies } = React.useMemo(() => {
+        const notReady = filteredAndSortedCompanies.filter(c => !c.is_ready)
+        const ready = filteredAndSortedCompanies.filter(c => c.is_ready)
+        return { notReadyCompanies: notReady, readyCompanies: ready }
+    }, [filteredAndSortedCompanies])
+
     return (
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
             <div className="px-4 lg:px-6 flex items-center justify-between">
@@ -363,7 +369,7 @@ export default function CompaniesPage() {
                     </TabsList>
                     <TabsContent value="all">
                         <CompaniesTable
-                            companies={filteredAndSortedCompanies}
+                            companies={notReadyCompanies}
                             isLoading={isLoading}
                             onUpdate={fetchCompanies}
                             onEnrich={handleEnrich}
@@ -375,10 +381,10 @@ export default function CompaniesPage() {
                     </TabsContent>
                     <TabsContent value="ready">
                         <CompaniesTable
-                            companies={[]}
-                            isLoading={false}
-                            onUpdate={() => { }}
-                            onEnrich={() => { }}
+                            companies={readyCompanies}
+                            isLoading={isLoading}
+                            onUpdate={fetchCompanies}
+                            onEnrich={handleEnrich}
                             sortConfig={sortConfig}
                             onSort={handleSort}
                             filters={filters}

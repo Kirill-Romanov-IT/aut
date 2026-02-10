@@ -26,6 +26,7 @@ export type Company = {
     location: string
     limit_val?: string | null
     created_at?: string
+    is_ready?: boolean
     createdAt?: string // Keep optional for backward compatibility if needed, but backend sends created_at
 }
 

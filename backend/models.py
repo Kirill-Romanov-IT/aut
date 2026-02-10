@@ -29,6 +29,7 @@ class CompanyCreate(BaseModel):
     location: Optional[str] = None
     limit_val: Optional[str] = None
     description: Optional[str] = None
+    is_ready: bool = False
 
 class Company(BaseModel):
     id: int
@@ -37,6 +38,7 @@ class Company(BaseModel):
     location: Optional[str]
     limit_val: Optional[str]
     description: Optional[str]
+    is_ready: bool = False
     created_at: Optional[datetime] = None
 
 class CompanyEnrich(BaseModel):

@@ -270,3 +270,29 @@ async def bulk_enrich_companies(updates: list[models.CompanyEnrich], current_use
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
+@app.patch("/companies/bulk-ready")
+async def bulk_ready_companies(ids: list[int | str], current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            # Convert string IDs to int if necessary
+            int_ids = []
+            for id_val in ids:
+                try:
+                    int_ids.append(int(id_val))
+                except (ValueError, TypeError):
+                    continue
+            
+            if not int_ids:
+                return {"message": "No valid IDs provided", "updated_count": 0}
+            
+            cur.execute("UPDATE companies SET is_ready = TRUE WHERE id = ANY(%s)", (int_ids,))
+            updated_count = cur.rowcount
+            conn.commit()
+            return {"message": f"Successfully moved {updated_count} companies to Ready", "updated_count": updated_count}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
