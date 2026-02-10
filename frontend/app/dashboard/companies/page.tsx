@@ -16,6 +16,13 @@ import {
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 
+import {
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger,
+} from "@/components/ui/tabs"
+
 export default function CompaniesPage() {
     const router = useRouter()
     const [isDialogOpen, setIsDialogOpen] = React.useState(false)
@@ -248,15 +255,29 @@ export default function CompaniesPage() {
                     </Dialog>
                 </div>
             </div>
-            <div className="px-4 lg:px-6 flex flex-col gap-4">
-                <main className="w-full">
-                    <CompaniesTable
-                        companies={companies}
-                        isLoading={isLoading}
-                        onUpdate={fetchCompanies}
-                        onEnrich={handleEnrich}
-                    />
-                </main>
+            <div className="px-4 lg:px-6">
+                <Tabs defaultValue="all" className="w-full">
+                    <TabsList className="mb-4">
+                        <TabsTrigger value="all">All Companies</TabsTrigger>
+                        <TabsTrigger value="ready">Ready Companies</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="all">
+                        <CompaniesTable
+                            companies={companies}
+                            isLoading={isLoading}
+                            onUpdate={fetchCompanies}
+                            onEnrich={handleEnrich}
+                        />
+                    </TabsContent>
+                    <TabsContent value="ready">
+                        <CompaniesTable
+                            companies={[]}
+                            isLoading={false}
+                            onUpdate={() => { }}
+                            onEnrich={() => { }}
+                        />
+                    </TabsContent>
+                </Tabs>
             </div>
 
             <Dialog open={isSuccessDialogOpen} onOpenChange={setIsSuccessDialogOpen}>
