@@ -208,3 +208,29 @@ async def get_companies(current_user: models.User = Depends(get_current_user)):
             return [models.Company(**company) for company in companies]
     finally:
         conn.close()
+
+@app.post("/companies/bulk-delete")
+async def bulk_delete_companies(ids: list[int | str], current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            # Convert string IDs to int if necessary
+            int_ids = []
+            for id_val in ids:
+                try:
+                    int_ids.append(int(id_val))
+                except (ValueError, TypeError):
+                    continue
+            
+            if not int_ids:
+                return {"message": "No valid IDs provided", "deleted_count": 0}
+            
+            cur.execute("DELETE FROM companies WHERE id = ANY(%s)", (int_ids,))
+            deleted_count = cur.rowcount
+            conn.commit()
+            return {"message": f"Successfully deleted {deleted_count} companies", "deleted_count": deleted_count}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
