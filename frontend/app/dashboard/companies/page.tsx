@@ -23,12 +23,16 @@ import {
     TabsTrigger,
 } from "@/components/ui/tabs"
 
+import { ReadyCompaniesTable, ReadyCompany } from "./ready-companies-table"
+
 export default function CompaniesPage() {
     const router = useRouter()
     const [isDialogOpen, setIsDialogOpen] = React.useState(false)
     const [isDragging, setIsDragging] = React.useState(false)
     const [companies, setCompanies] = React.useState<any[]>([])
+    const [readyCompanies, setReadyCompanies] = React.useState<ReadyCompany[]>([])
     const [isLoading, setIsLoading] = React.useState(true)
+    const [isReadyLoading, setIsReadyLoading] = React.useState(true)
     const [importResult, setImportResult] = React.useState<{ inserted: number, total: number } | null>(null)
     const [isSuccessDialogOpen, setIsSuccessDialogOpen] = React.useState(false)
     const fileInputRef = React.useRef<HTMLInputElement>(null)
@@ -57,8 +61,6 @@ export default function CompaniesPage() {
             if (response.ok) {
                 const data = await response.json()
                 setCompanies(data)
-            } else {
-                console.error("Failed to fetch companies")
             }
         } catch (error) {
             console.error("Error fetching companies:", error)
@@ -67,18 +69,46 @@ export default function CompaniesPage() {
         }
     }, [router])
 
-    React.useEffect(() => {
+    const fetchReadyCompanies = React.useCallback(async () => {
+        setIsReadyLoading(true)
+        try {
+            const token = localStorage.getItem("token")
+            if (!token) return
+
+            const response = await fetch("http://localhost:8000/ready-companies", {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                setReadyCompanies(data)
+            }
+        } catch (error) {
+            console.error("Error fetching ready companies:", error)
+        } finally {
+            setIsReadyLoading(false)
+        }
+    }, [])
+
+    const refreshAll = React.useCallback(() => {
         fetchCompanies()
+        fetchReadyCompanies()
+    }, [fetchCompanies, fetchReadyCompanies])
+
+    React.useEffect(() => {
+        refreshAll()
 
         const handleUpdate = () => {
-            fetchCompanies()
+            refreshAll()
         }
 
         window.addEventListener("companies-updated", handleUpdate)
         return () => {
             window.removeEventListener("companies-updated", handleUpdate)
         }
-    }, [fetchCompanies])
+    }, [refreshAll])
 
     const handleImportClick = () => {
         fileInputRef.current?.click()
@@ -131,14 +161,11 @@ export default function CompaniesPage() {
             })
             setIsSuccessDialogOpen(true)
 
-            // Auto-hide after 5 seconds
             setTimeout(() => {
                 setIsSuccessDialogOpen(false)
             }, 5000)
 
             setIsDialogOpen(false)
-
-            // Refresh companies list
             fetchCompanies()
 
         } catch (error) {
@@ -202,7 +229,6 @@ export default function CompaniesPage() {
     const filteredAndSortedCompanies = React.useMemo(() => {
         let result = [...companies]
 
-        // Filtering
         if (filters.name) {
             result = result.filter(c => c.name.toLowerCase().includes(filters.name.toLowerCase()))
         }
@@ -223,7 +249,6 @@ export default function CompaniesPage() {
             }
         }
 
-        // Sorting
         if (sortConfig.key && sortConfig.direction) {
             result.sort((a, b) => {
                 const aValue = a[sortConfig.key]
@@ -249,7 +274,6 @@ export default function CompaniesPage() {
                 return
             }
 
-            // Generate updates
             const updates = companies.map(company => ({
                 id: company.id,
                 employees: Math.floor(Math.random() * (500 - 25 + 1)) + 25
@@ -280,7 +304,6 @@ export default function CompaniesPage() {
                 description: `Saved random numbers for ${companies.length} companies to database.`
             })
 
-            // Refresh companies list from database
             fetchCompanies()
 
         } catch (error) {
@@ -293,12 +316,6 @@ export default function CompaniesPage() {
         }
     }
 
-    const { notReadyCompanies, readyCompanies } = React.useMemo(() => {
-        const notReady = filteredAndSortedCompanies.filter(c => !c.is_ready)
-        const ready = filteredAndSortedCompanies.filter(c => c.is_ready)
-        return { notReadyCompanies: notReady, readyCompanies: ready }
-    }, [filteredAndSortedCompanies])
-
     return (
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
             <div className="px-4 lg:px-6 flex items-center justify-between">
@@ -307,11 +324,9 @@ export default function CompaniesPage() {
                     <p className="text-sm text-muted-foreground">Manage and track all your active and archived companies in one central place.</p>
                 </div>
                 <div className="flex items-center gap-4">
-                    {filteredAndSortedCompanies.length > 0 && (
-                        <span className="text-sm font-medium text-muted-foreground">
-                            Total: {filteredAndSortedCompanies.length}
-                        </span>
-                    )}
+                    <span className="text-sm font-medium text-muted-foreground mr-2">
+                        Total: {filteredAndSortedCompanies.length} Active / {readyCompanies.length} Ready
+                    </span>
                     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                         <DialogTrigger asChild>
                             <Button
@@ -369,9 +384,9 @@ export default function CompaniesPage() {
                     </TabsList>
                     <TabsContent value="all">
                         <CompaniesTable
-                            companies={notReadyCompanies}
+                            companies={filteredAndSortedCompanies}
                             isLoading={isLoading}
-                            onUpdate={fetchCompanies}
+                            onUpdate={refreshAll}
                             onEnrich={handleEnrich}
                             sortConfig={sortConfig}
                             onSort={handleSort}
@@ -380,15 +395,10 @@ export default function CompaniesPage() {
                         />
                     </TabsContent>
                     <TabsContent value="ready">
-                        <CompaniesTable
+                        <ReadyCompaniesTable
                             companies={readyCompanies}
-                            isLoading={isLoading}
-                            onUpdate={fetchCompanies}
-                            onEnrich={handleEnrich}
-                            sortConfig={sortConfig}
-                            onSort={handleSort}
-                            filters={filters}
-                            onFilterChange={handleFilterChange}
+                            isLoading={isReadyLoading}
+                            onUpdate={refreshAll}
                         />
                     </TabsContent>
                 </Tabs>

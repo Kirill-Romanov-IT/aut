@@ -287,10 +287,61 @@ async def bulk_ready_companies(ids: list[int | str], current_user: models.User =
             if not int_ids:
                 return {"message": "No valid IDs provided", "updated_count": 0}
             
-            cur.execute("UPDATE companies SET is_ready = TRUE WHERE id = ANY(%s)", (int_ids,))
-            updated_count = cur.rowcount
+            # 1. Fetch data from companies
+            cur.execute("SELECT name, location FROM companies WHERE id = ANY(%s)", (int_ids,))
+            companies_to_move = cur.fetchall()
+            
+            if not companies_to_move:
+                return {"message": "No matching companies found", "updated_count": 0}
+            
+            # 2. Insert into ready_companies (Name becomes company_name)
+            for company in companies_to_move:
+                cur.execute(
+                    "INSERT INTO ready_companies (company_name, location) VALUES (%s, %s)",
+                    (company['name'], company['location'])
+                )
+            
+            # 3. Delete from companies
+            cur.execute("DELETE FROM companies WHERE id = ANY(%s)", (int_ids,))
+            
             conn.commit()
-            return {"message": f"Successfully moved {updated_count} companies to Ready", "updated_count": updated_count}
+            return {"message": f"Successfully moved {len(companies_to_move)} companies to Ready", "updated_count": len(companies_to_move)}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.get("/ready-companies", response_model=list[models.ReadyCompany])
+async def get_ready_companies(current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM ready_companies ORDER BY created_at DESC")
+            companies = cur.fetchall()
+            return [models.ReadyCompany(**company) for company in companies]
+    finally:
+        conn.close()
+
+@app.post("/ready-companies/bulk-delete")
+async def bulk_delete_ready_companies(ids: list[int | str], current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            int_ids = []
+            for id_val in ids:
+                try:
+                    int_ids.append(int(id_val))
+                except (ValueError, TypeError):
+                    continue
+            
+            if not int_ids:
+                return {"message": "No valid IDs provided", "deleted_count": 0}
+            
+            cur.execute("DELETE FROM ready_companies WHERE id = ANY(%s)", (int_ids,))
+            deleted_count = cur.rowcount
+            conn.commit()
+            return {"message": f"Successfully deleted {deleted_count} ready companies", "deleted_count": deleted_count}
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
