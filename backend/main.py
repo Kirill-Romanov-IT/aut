@@ -169,6 +169,7 @@ async def upload_companies(file: UploadFile = File(...), current_user: models.Us
 
             # Insert companies
             inserted_count = 0
+            skipped_count = 0
             
             # Fetch existing names to prevent duplicates
             cur.execute("SELECT name FROM companies")
@@ -176,6 +177,7 @@ async def upload_companies(file: UploadFile = File(...), current_user: models.Us
             
             for company in companies_to_insert:
                 if company['name'].lower() in existing_names:
+                    skipped_count += 1
                     continue
                     
                 keys = list(company.keys())
@@ -199,8 +201,10 @@ async def upload_companies(file: UploadFile = File(...), current_user: models.Us
             
             conn.commit()
             return {
-                "message": f"Successfully imported {inserted_count} companies",
+                "message": f"Successfully imported {inserted_count} companies.",
                 "inserted_count": inserted_count,
+                "skipped_count": skipped_count,
+                "total_in_csv": len(companies_to_insert),
                 "total_count": total_count
             }
             

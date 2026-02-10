@@ -20,13 +20,20 @@ export default function CompaniesPage() {
     const router = useRouter()
     const [isDialogOpen, setIsDialogOpen] = React.useState(false)
     const [isDragging, setIsDragging] = React.useState(false)
-    const [totalCount, setTotalCount] = React.useState<number | null>(null)
+    const [companies, setCompanies] = React.useState<any[]>([])
+    const [isLoading, setIsLoading] = React.useState(true)
+    const [importResult, setImportResult] = React.useState<{ inserted: number, total: number } | null>(null)
+    const [isSuccessDialogOpen, setIsSuccessDialogOpen] = React.useState(false)
     const fileInputRef = React.useRef<HTMLInputElement>(null)
 
-    const fetchCount = React.useCallback(async () => {
+    const fetchCompanies = React.useCallback(async () => {
+        setIsLoading(true)
         try {
             const token = localStorage.getItem("token")
-            if (!token) return
+            if (!token) {
+                router.push("/")
+                return
+            }
 
             const response = await fetch("http://localhost:8000/companies", {
                 headers: {
@@ -34,27 +41,37 @@ export default function CompaniesPage() {
                 },
             })
 
+            if (response.status === 401) {
+                localStorage.removeItem("token")
+                router.push("/")
+                return
+            }
+
             if (response.ok) {
                 const data = await response.json()
-                setTotalCount(data.length)
+                setCompanies(data)
+            } else {
+                console.error("Failed to fetch companies")
             }
         } catch (error) {
-            console.error("Error fetching count:", error)
+            console.error("Error fetching companies:", error)
+        } finally {
+            setIsLoading(false)
         }
-    }, [])
+    }, [router])
 
     React.useEffect(() => {
-        fetchCount()
+        fetchCompanies()
 
         const handleUpdate = () => {
-            fetchCount()
+            fetchCompanies()
         }
 
         window.addEventListener("companies-updated", handleUpdate)
         return () => {
             window.removeEventListener("companies-updated", handleUpdate)
         }
-    }, [fetchCount])
+    }, [fetchCompanies])
 
     const handleImportClick = () => {
         fileInputRef.current?.click()
@@ -100,15 +117,29 @@ export default function CompaniesPage() {
             }
 
             const data = await response.json()
-            toast.success(data.message)
+
+            setImportResult({
+                inserted: data.inserted_count,
+                total: data.total_in_csv
+            })
+            setIsSuccessDialogOpen(true)
+
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                setIsSuccessDialogOpen(false)
+            }, 5000)
+
             setIsDialogOpen(false)
 
-            // Dispatch custom event to refresh table
-            window.dispatchEvent(new Event("companies-updated"))
+            // Refresh companies list
+            fetchCompanies()
 
         } catch (error) {
             console.error("Upload error:", error)
-            toast.error(error instanceof Error ? error.message : "Failed to upload file")
+            toast.error("Import Failed", {
+                description: error instanceof Error ? error.message : "Failed to upload file",
+                duration: 5000,
+            })
         } finally {
             toast.dismiss(loadingToast)
         }
@@ -152,9 +183,9 @@ export default function CompaniesPage() {
                     <p className="text-sm text-muted-foreground">Manage and track all your active and archived companies in one central place.</p>
                 </div>
                 <div className="flex items-center gap-4">
-                    {totalCount !== null && (
+                    {companies.length > 0 && (
                         <span className="text-sm font-medium text-muted-foreground">
-                            Total: {totalCount}
+                            Total: {companies.length}
                         </span>
                     )}
                     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -208,9 +239,40 @@ export default function CompaniesPage() {
             </div>
             <div className="px-4 lg:px-6 flex flex-col gap-4">
                 <main className="w-full">
-                    <CompaniesTable />
+                    <CompaniesTable
+                        companies={companies}
+                        isLoading={isLoading}
+                        onUpdate={fetchCompanies}
+                    />
                 </main>
             </div>
+
+            <Dialog open={isSuccessDialogOpen} onOpenChange={setIsSuccessDialogOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-bold">Import Status</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col items-center justify-center space-y-4 py-6">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
+                            <Upload className="h-6 w-6 text-green-600 dark:text-green-400" />
+                        </div>
+                        <p className="text-center text-lg font-medium text-foreground">
+                            Imported {importResult?.inserted} out of {importResult?.total}
+                        </p>
+                        <p className="text-center text-sm text-muted-foreground">
+                            Duplicates were automatically skipped.
+                        </p>
+                    </div>
+                    <div className="flex justify-center">
+                        <Button
+                            className="px-8"
+                            onClick={() => setIsSuccessDialogOpen(false)}
+                        >
+                            OK
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

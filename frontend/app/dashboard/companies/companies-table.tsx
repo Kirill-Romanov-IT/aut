@@ -47,60 +47,21 @@ const initialCompanies: Company[] = [
     },
 ]
 
-export function CompaniesTable() {
+export interface CompaniesTableProps {
+    companies: Company[]
+    isLoading: boolean
+    onUpdate: () => void
+}
+
+export function CompaniesTable({
+    companies,
+    isLoading,
+    onUpdate
+}: CompaniesTableProps) {
     const router = useRouter()
-    const [companies, setCompanies] = React.useState<Company[]>([])
     const [selectedCompany, setSelectedCompany] = React.useState<Company | null>(null)
     const [isSheetOpen, setIsSheetOpen] = React.useState(false)
-    const [isLoading, setIsLoading] = React.useState(true)
     const [selectedIds, setSelectedIds] = React.useState<Set<number | string>>(new Set())
-
-    const fetchCompanies = React.useCallback(async () => {
-        setIsLoading(true)
-        try {
-            const token = localStorage.getItem("token")
-            if (!token) {
-                router.push("/")
-                return
-            }
-
-            const response = await fetch("http://localhost:8000/companies", {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            })
-
-            if (response.status === 401) {
-                localStorage.removeItem("token")
-                router.push("/")
-                return
-            }
-
-            if (response.ok) {
-                const data = await response.json()
-                setCompanies(data)
-            } else {
-                console.error("Failed to fetch companies")
-            }
-        } catch (error) {
-            console.error("Error fetching companies:", error)
-        } finally {
-            setIsLoading(false)
-        }
-    }, [router])
-
-    React.useEffect(() => {
-        fetchCompanies()
-
-        const handleUpdate = () => {
-            fetchCompanies()
-        }
-
-        window.addEventListener("companies-updated", handleUpdate)
-        return () => {
-            window.removeEventListener("companies-updated", handleUpdate)
-        }
-    }, [fetchCompanies])
 
     const handleRowClick = (company: Company) => {
         setSelectedCompany(company)
@@ -120,17 +81,13 @@ export function CompaniesTable() {
     }
 
     const handleSave = (updatedCompany: Company) => {
-        if (updatedCompany.id) {
-            setCompanies(companies.map(c => c.id === updatedCompany.id ? updatedCompany : c))
-        } else {
-            // Optimistic update, ignoring ID collision for now since backend handles real IDs
-            //Ideally we should POST to create
-            setCompanies([updatedCompany, ...companies])
-        }
+        // Since state is lifted, we notify the parent to update
+        onUpdate()
     }
 
     const handleDelete = (id: string | number) => {
-        setCompanies(companies.filter(c => c.id !== id))
+        // Notify parent to refresh
+        onUpdate()
         setSelectedIds(prev => {
             const next = new Set(prev)
             next.delete(id)
@@ -157,20 +114,20 @@ export function CompaniesTable() {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(Array.from(selectedIds)),
+                body: JSON.stringify({ ids: Array.from(selectedIds) }),
             })
 
             if (response.ok) {
                 toast.success(`Successfully deleted ${selectedIds.size} companies`)
                 setSelectedIds(new Set())
-                fetchCompanies()
+                onUpdate() // Refresh parent state
             } else {
-                const error = await response.json()
-                toast.error(error.detail || "Failed to delete companies")
+                const data = await response.json()
+                toast.error(data.detail || "Failed to delete companies")
             }
         } catch (error) {
-            console.error("Error bulk deleting companies:", error)
-            toast.error("An error occurred during deletion")
+            console.error("Bulk delete error:", error)
+            toast.error("An error occurred while deleting companies")
         }
     }
 
