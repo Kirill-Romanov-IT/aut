@@ -38,3 +38,7 @@ class Company(BaseModel):
     limit_val: Optional[str]
     description: Optional[str]
     created_at: Optional[datetime] = None
+
+class CompanyEnrich(BaseModel):
+    id: int
+    employees: int

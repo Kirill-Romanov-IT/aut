@@ -182,15 +182,115 @@ export default function CompaniesPage() {
         }
     }
 
-    const handleEnrich = () => {
-        const enrichedCompanies = companies.map(company => ({
-            ...company,
-            employees: Math.floor(Math.random() * (500 - 25 + 1)) + 25
-        }))
-        setCompanies(enrichedCompanies)
-        toast.success("Data enriched", {
-            description: `Generated random numbers for ${companies.length} companies.`
-        })
+    const [sortConfig, setSortConfig] = React.useState<{ key: string, direction: 'asc' | 'desc' | null }>({ key: '', direction: null })
+    const [filters, setFilters] = React.useState({ name: '', employees: '', location: '' })
+
+    const handleSort = (key: string) => {
+        let direction: 'asc' | 'desc' | null = 'asc'
+        if (sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc'
+        } else if (sortConfig.key === key && sortConfig.direction === 'desc') {
+            direction = null
+        }
+        setSortConfig({ key, direction })
+    }
+
+    const handleFilterChange = (key: string, value: string) => {
+        setFilters(prev => ({ ...prev, [key]: value }))
+    }
+
+    const filteredAndSortedCompanies = React.useMemo(() => {
+        let result = [...companies]
+
+        // Filtering
+        if (filters.name) {
+            result = result.filter(c => c.name.toLowerCase().includes(filters.name.toLowerCase()))
+        }
+        if (filters.location) {
+            result = result.filter(c => c.location && c.location.toLowerCase().includes(filters.location.toLowerCase()))
+        }
+        if (filters.employees) {
+            const val = filters.employees.trim()
+            if (val.startsWith('>')) {
+                const num = parseInt(val.slice(1))
+                if (!isNaN(num)) result = result.filter(c => c.employees > num)
+            } else if (val.startsWith('<')) {
+                const num = parseInt(val.slice(1))
+                if (!isNaN(num)) result = result.filter(c => c.employees < num)
+            } else {
+                const num = parseInt(val)
+                if (!isNaN(num)) result = result.filter(c => c.employees === num)
+            }
+        }
+
+        // Sorting
+        if (sortConfig.key && sortConfig.direction) {
+            result.sort((a, b) => {
+                const aValue = a[sortConfig.key]
+                const bValue = b[sortConfig.key]
+
+                if (aValue === bValue) return 0
+                const comparison = aValue > bValue ? 1 : -1
+                return sortConfig.direction === 'asc' ? comparison : -comparison
+            })
+        }
+
+        return result
+    }, [companies, sortConfig, filters])
+
+    const handleEnrich = async () => {
+        const loadingToast = toast.loading("Enriching data...")
+
+        try {
+            const token = localStorage.getItem("token")
+            if (!token) {
+                router.push("/")
+                toast.error("Please login first")
+                return
+            }
+
+            // Generate updates
+            const updates = companies.map(company => ({
+                id: company.id,
+                employees: Math.floor(Math.random() * (500 - 25 + 1)) + 25
+            }))
+
+            const response = await fetch("http://localhost:8000/companies/bulk-enrich", {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(updates),
+            })
+
+            if (response.status === 401) {
+                localStorage.removeItem("token")
+                router.push("/")
+                toast.error("Session expired, please login again")
+                return
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.detail || "Enrichment failed")
+            }
+
+            toast.success("Data enriched", {
+                description: `Saved random numbers for ${companies.length} companies to database.`
+            })
+
+            // Refresh companies list from database
+            fetchCompanies()
+
+        } catch (error) {
+            console.error("Enrichment error:", error)
+            toast.error("Enrichment Failed", {
+                description: error instanceof Error ? error.message : "Failed to persist enriched data",
+            })
+        } finally {
+            toast.dismiss(loadingToast)
+        }
     }
 
     return (
@@ -201,9 +301,9 @@ export default function CompaniesPage() {
                     <p className="text-sm text-muted-foreground">Manage and track all your active and archived companies in one central place.</p>
                 </div>
                 <div className="flex items-center gap-4">
-                    {companies.length > 0 && (
+                    {filteredAndSortedCompanies.length > 0 && (
                         <span className="text-sm font-medium text-muted-foreground">
-                            Total: {companies.length}
+                            Total: {filteredAndSortedCompanies.length}
                         </span>
                     )}
                     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -263,10 +363,14 @@ export default function CompaniesPage() {
                     </TabsList>
                     <TabsContent value="all">
                         <CompaniesTable
-                            companies={companies}
+                            companies={filteredAndSortedCompanies}
                             isLoading={isLoading}
                             onUpdate={fetchCompanies}
                             onEnrich={handleEnrich}
+                            sortConfig={sortConfig}
+                            onSort={handleSort}
+                            filters={filters}
+                            onFilterChange={handleFilterChange}
                         />
                     </TabsContent>
                     <TabsContent value="ready">
@@ -275,6 +379,10 @@ export default function CompaniesPage() {
                             isLoading={false}
                             onUpdate={() => { }}
                             onEnrich={() => { }}
+                            sortConfig={sortConfig}
+                            onSort={handleSort}
+                            filters={filters}
+                            onFilterChange={handleFilterChange}
                         />
                     </TabsContent>
                 </Tabs>

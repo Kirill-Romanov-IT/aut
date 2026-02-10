@@ -252,3 +252,21 @@ async def bulk_delete_companies(ids: list[int | str], current_user: models.User 
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
+@app.patch("/companies/bulk-enrich")
+async def bulk_enrich_companies(updates: list[models.CompanyEnrich], current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            for update in updates:
+                cur.execute(
+                    "UPDATE companies SET employees = %s WHERE id = %s",
+                    (update.employees, update.id)
+                )
+            conn.commit()
+            return {"message": f"Successfully enriched {len(updates)} companies"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()

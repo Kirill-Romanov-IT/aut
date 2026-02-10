@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Plus, MoreVertical, Trash2 } from "lucide-react"
+import { Plus, MoreVertical, Trash2, ArrowUpDown, ChevronUp, ChevronDown, Search } from "lucide-react"
 import { Company, CompanySheet } from "./company-sheet"
 import { Checkbox } from "@/components/ui/checkbox"
 import {
@@ -22,6 +22,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
+import { Input } from "@/components/ui/input"
 
 const initialCompanies: Company[] = [
     {
@@ -52,13 +53,21 @@ export interface CompaniesTableProps {
     isLoading: boolean
     onUpdate: () => void
     onEnrich: () => void
+    sortConfig: { key: string, direction: 'asc' | 'desc' | null }
+    onSort: (key: string) => void
+    filters: { name: string, employees: string, location: string }
+    onFilterChange: (key: string, value: string) => void
 }
 
 export function CompaniesTable({
     companies,
     isLoading,
     onUpdate,
-    onEnrich
+    onEnrich,
+    sortConfig,
+    onSort,
+    filters,
+    onFilterChange
 }: CompaniesTableProps) {
     const router = useRouter()
     const [selectedCompany, setSelectedCompany] = React.useState<Company | null>(null)
@@ -87,14 +96,44 @@ export function CompaniesTable({
         onUpdate()
     }
 
-    const handleDelete = (id: string | number) => {
-        // Notify parent to refresh
-        onUpdate()
-        setSelectedIds(prev => {
-            const next = new Set(prev)
-            next.delete(id)
-            return next
-        })
+    const handleDelete = async (id: string | number) => {
+        const confirmDelete = window.confirm("Are you sure you want to delete this company?")
+        if (!confirmDelete) return
+
+        const loadingToast = toast.loading("Deleting company...")
+        try {
+            const token = localStorage.getItem("token")
+            if (!token) {
+                router.push("/")
+                return
+            }
+
+            const response = await fetch("http://localhost:8000/companies/bulk-delete", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify([id]),
+            })
+
+            if (response.ok) {
+                toast.success("Company deleted")
+                setSelectedIds(prev => {
+                    const next = new Set(prev)
+                    next.delete(id)
+                    return next
+                })
+                onUpdate()
+            } else {
+                toast.error("Failed to delete company")
+            }
+        } catch (error) {
+            console.error("Error deleting company:", error)
+            toast.error("An error occurred")
+        } finally {
+            toast.dismiss(loadingToast)
+        }
     }
 
     const handleBulkDelete = async () => {
@@ -116,7 +155,7 @@ export function CompaniesTable({
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify({ ids: Array.from(selectedIds) }),
+                body: JSON.stringify(Array.from(selectedIds)),
             })
 
             if (response.ok) {
@@ -139,9 +178,63 @@ export function CompaniesTable({
                 <Table>
                     <TableHeader>
                         <TableRow className="hover:bg-transparent">
-                            <TableHead className="font-semibold text-foreground">Name</TableHead>
-                            <TableHead className="font-semibold text-foreground">Employees</TableHead>
-                            <TableHead className="font-semibold text-foreground">Location</TableHead>
+                            <TableHead className="font-semibold text-foreground py-4">
+                                <div className="flex flex-col gap-2">
+                                    <div
+                                        className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
+                                        onClick={() => onSort('name')}
+                                    >
+                                        Name
+                                        {sortConfig.key === 'name' ? (
+                                            sortConfig.direction === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                                        ) : <ArrowUpDown className="h-3 w-3 opacity-50" />}
+                                    </div>
+                                    <div className="relative">
+                                        <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                                        <Input
+                                            placeholder="Filter..."
+                                            value={filters.name}
+                                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => onFilterChange('name', e.target.value)}
+                                            className="h-8 pl-8 text-xs bg-muted/50 border-none focus-visible:ring-1"
+                                            onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                                        />
+                                    </div>
+                                </div>
+                            </TableHead>
+                            <TableHead className="font-semibold text-foreground py-4">
+                                <div className="flex flex-col gap-2">
+                                    <div
+                                        className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
+                                        onClick={() => onSort('employees')}
+                                    >
+                                        Employees
+                                        {sortConfig.key === 'employees' ? (
+                                            sortConfig.direction === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
+                                        ) : <ArrowUpDown className="h-3 w-3 opacity-50" />}
+                                    </div>
+                                    <Input
+                                        placeholder="e.g. >200"
+                                        value={filters.employees}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => onFilterChange('employees', e.target.value)}
+                                        className="h-8 text-xs bg-muted/50 border-none focus-visible:ring-1"
+                                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                                    />
+                                </div>
+                            </TableHead>
+                            <TableHead className="font-semibold text-foreground py-4">
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex items-center gap-2">
+                                        Location
+                                    </div>
+                                    <Input
+                                        placeholder="Filter..."
+                                        value={filters.location}
+                                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => onFilterChange('location', e.target.value)}
+                                        className="h-8 text-xs bg-muted/50 border-none focus-visible:ring-1"
+                                        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                                    />
+                                </div>
+                            </TableHead>
                             <TableHead className="font-semibold text-foreground">Created At</TableHead>
                             <TableHead className="text-right w-[60px]">
                                 {selectedIds.size > 0 && (
