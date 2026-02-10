@@ -175,6 +175,17 @@ export default function CompaniesPage() {
         }
     }
 
+    const handleEnrich = () => {
+        const enrichedCompanies = companies.map(company => ({
+            ...company,
+            employees: Math.floor(Math.random() * (500 - 25 + 1)) + 25
+        }))
+        setCompanies(enrichedCompanies)
+        toast.success("Data enriched", {
+            description: `Generated random numbers for ${companies.length} companies.`
+        })
+    }
+
     return (
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
             <div className="px-4 lg:px-6 flex items-center justify-between">
@@ -243,6 +254,7 @@ export default function CompaniesPage() {
                         companies={companies}
                         isLoading={isLoading}
                         onUpdate={fetchCompanies}
+                        onEnrich={handleEnrich}
                     />
                 </main>
             </div>

@@ -51,12 +51,14 @@ export interface CompaniesTableProps {
     companies: Company[]
     isLoading: boolean
     onUpdate: () => void
+    onEnrich: () => void
 }
 
 export function CompaniesTable({
     companies,
     isLoading,
-    onUpdate
+    onUpdate,
+    onEnrich
 }: CompaniesTableProps) {
     const router = useRouter()
     const [selectedCompany, setSelectedCompany] = React.useState<Company | null>(null)
@@ -150,6 +152,15 @@ export function CompaniesTable({
                                             </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end">
+                                            <DropdownMenuItem
+                                                className="cursor-pointer"
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    onEnrich()
+                                                }}
+                                            >
+                                                Enrich Data
+                                            </DropdownMenuItem>
                                             <DropdownMenuItem
                                                 className="text-destructive focus:text-destructive"
                                                 onClick={(e) => {
