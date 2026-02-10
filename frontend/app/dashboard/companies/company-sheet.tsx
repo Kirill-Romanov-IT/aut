@@ -22,7 +22,8 @@ import {
 export type Company = {
     id: string
     name: string
-    status: "Active" | "Archived"
+    employees: number
+    location: string
     createdAt: string
 }
 
@@ -73,21 +74,21 @@ export function CompanySheet({
                         />
                     </div>
                     <div className="grid gap-2">
-                        <Label htmlFor="status">Status</Label>
-                        <Select
-                            value={formData.status}
-                            onValueChange={(value: "Active" | "Archived") =>
-                                setFormData({ ...formData, status: value })
-                            }
-                        >
-                            <SelectTrigger id="status">
-                                <SelectValue placeholder="Select status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="Active">Active</SelectItem>
-                                <SelectItem value="Archived">Archived</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <Label htmlFor="employees">Employees</Label>
+                        <Input
+                            id="employees"
+                            type="number"
+                            value={formData.employees}
+                            onChange={(e) => setFormData({ ...formData, employees: parseInt(e.target.value) || 0 })}
+                        />
+                    </div>
+                    <div className="grid gap-2">
+                        <Label htmlFor="location">Location</Label>
+                        <Input
+                            id="location"
+                            value={formData.location}
+                            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                        />
                     </div>
                 </div>
                 <div className="flex flex-col gap-3 mt-4">

@@ -18,19 +18,22 @@ const initialCompanies: Company[] = [
     {
         id: "1",
         name: "Acme Corp",
-        status: "Active",
+        employees: 120,
+        location: "New York",
         createdAt: "2023-10-01",
     },
     {
         id: "2",
         name: "Globex Corporation",
-        status: "Archived",
+        employees: 500,
+        location: "San Francisco",
         createdAt: "2023-08-15",
     },
     {
         id: "3",
         name: "Soylent Corp",
-        status: "Active",
+        employees: 50,
+        location: "Chicago",
         createdAt: "2023-09-20",
     },
 ]
@@ -49,7 +52,8 @@ export function CompaniesTable() {
         const newCompany: Company = {
             id: "",
             name: "New Company",
-            status: "Active",
+            employees: 0,
+            location: "Unknown",
             createdAt: new Date().toISOString().split('T')[0],
         }
         setSelectedCompany(newCompany)
@@ -76,7 +80,8 @@ export function CompaniesTable() {
                     <TableHeader>
                         <TableRow className="hover:bg-transparent">
                             <TableHead className="font-semibold text-foreground">Name</TableHead>
-                            <TableHead className="font-semibold text-foreground">Status</TableHead>
+                            <TableHead className="font-semibold text-foreground">Employees</TableHead>
+                            <TableHead className="font-semibold text-foreground">Location</TableHead>
                             <TableHead className="text-right font-semibold text-foreground">Created At</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -88,14 +93,8 @@ export function CompaniesTable() {
                                 onClick={() => handleRowClick(company)}
                             >
                                 <TableCell className="font-medium">{company.name}</TableCell>
-                                <TableCell>
-                                    <Badge
-                                        variant={company.status === "Active" ? "default" : "secondary"}
-                                        className="px-2 py-0.5 text-xs font-medium"
-                                    >
-                                        {company.status}
-                                    </Badge>
-                                </TableCell>
+                                <TableCell>{company.employees}</TableCell>
+                                <TableCell>{company.location}</TableCell>
                                 <TableCell className="text-right text-muted-foreground">{company.createdAt}</TableCell>
                             </TableRow>
                         ))}
