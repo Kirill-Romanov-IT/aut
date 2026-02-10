@@ -169,9 +169,15 @@ async def upload_companies(file: UploadFile = File(...), current_user: models.Us
 
             # Insert companies
             inserted_count = 0
+            
+            # Fetch existing names to prevent duplicates
+            cur.execute("SELECT name FROM companies")
+            existing_names = {row['name'].lower() for row in cur.fetchall()}
+            
             for company in companies_to_insert:
-                # Use a somewhat safe insert that ignores extra keys if any, but we filtered by db_field
-                # Construct query dynamically based on available keys
+                if company['name'].lower() in existing_names:
+                    continue
+                    
                 keys = list(company.keys())
                 if not keys:
                     continue
@@ -180,15 +186,23 @@ async def upload_companies(file: UploadFile = File(...), current_user: models.Us
                 placeholders = ', '.join(['%s'] * len(keys))
                 values = list(company.values())
                 
-                # Simple append, no update on conflict as requested ("plus")
                 cur.execute(
                     f"INSERT INTO companies ({columns}) VALUES ({placeholders})",
                     values
                 )
+                existing_names.add(company['name'].lower())
                 inserted_count += 1
             
+            # Get total count
+            cur.execute("SELECT COUNT(*) FROM companies")
+            total_count = cur.fetchone()['count']
+            
             conn.commit()
-            return {"message": f"Successfully imported {inserted_count} companies"}
+            return {
+                "message": f"Successfully imported {inserted_count} companies",
+                "inserted_count": inserted_count,
+                "total_count": total_count
+            }
             
     except Exception as e:
         conn.rollback()

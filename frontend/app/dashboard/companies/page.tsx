@@ -20,7 +20,41 @@ export default function CompaniesPage() {
     const router = useRouter()
     const [isDialogOpen, setIsDialogOpen] = React.useState(false)
     const [isDragging, setIsDragging] = React.useState(false)
+    const [totalCount, setTotalCount] = React.useState<number | null>(null)
     const fileInputRef = React.useRef<HTMLInputElement>(null)
+
+    const fetchCount = React.useCallback(async () => {
+        try {
+            const token = localStorage.getItem("token")
+            if (!token) return
+
+            const response = await fetch("http://localhost:8000/companies", {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                setTotalCount(data.length)
+            }
+        } catch (error) {
+            console.error("Error fetching count:", error)
+        }
+    }, [])
+
+    React.useEffect(() => {
+        fetchCount()
+
+        const handleUpdate = () => {
+            fetchCount()
+        }
+
+        window.addEventListener("companies-updated", handleUpdate)
+        return () => {
+            window.removeEventListener("companies-updated", handleUpdate)
+        }
+    }, [fetchCount])
 
     const handleImportClick = () => {
         fileInputRef.current?.click()
@@ -117,53 +151,60 @@ export default function CompaniesPage() {
                     <h2 className="text-2xl font-bold tracking-tight">Companies</h2>
                     <p className="text-sm text-muted-foreground">Manage and track all your active and archived companies in one central place.</p>
                 </div>
-                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                    <DialogTrigger asChild>
-                        <Button
-                            className="gap-2 bg-[#020817] text-white hover:bg-[#020817]/90 dark:bg-primary dark:text-primary-foreground"
-                        >
-                            <Upload className="h-4 w-4 text-white" />
-                            <span className="text-white">Import CSV</span>
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[425px]">
-                        <DialogHeader>
-                            <DialogTitle>Import Companies</DialogTitle>
-                            <DialogDescription>
-                                Drag and drop your CSV file here or click to browse.
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div
-                            className={cn(
-                                "mt-4 flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-10 transition-colors cursor-pointer",
-                                isDragging
-                                    ? "border-primary bg-primary/5"
-                                    : "border-muted-foreground/25 hover:border-primary hover:bg-muted/50"
-                            )}
-                            onDragOver={handleDragOver}
-                            onDragLeave={handleDragLeave}
-                            onDrop={handleDrop}
-                            onClick={handleImportClick}
-                        >
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                onChange={handleFileChange}
-                                accept=".csv"
-                                className="hidden"
-                            />
-                            <div className="flex flex-col items-center gap-2 text-center text-sm text-muted-foreground">
-                                <div className="rounded-full bg-muted p-3">
-                                    <FileUp className="h-6 w-6 text-muted-foreground" />
+                <div className="flex items-center gap-4">
+                    {totalCount !== null && (
+                        <span className="text-sm font-medium text-muted-foreground">
+                            Total: {totalCount}
+                        </span>
+                    )}
+                    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button
+                                className="gap-2 bg-[#020817] text-white hover:bg-[#020817]/90 dark:bg-primary dark:text-primary-foreground"
+                            >
+                                <Upload className="h-4 w-4 text-white" />
+                                <span className="text-white">Import CSV</span>
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px]">
+                            <DialogHeader>
+                                <DialogTitle>Import Companies</DialogTitle>
+                                <DialogDescription>
+                                    Drag and drop your CSV file here or click to browse.
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div
+                                className={cn(
+                                    "mt-4 flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-10 transition-colors cursor-pointer",
+                                    isDragging
+                                        ? "border-primary bg-primary/5"
+                                        : "border-muted-foreground/25 hover:border-primary hover:bg-muted/50"
+                                )}
+                                onDragOver={handleDragOver}
+                                onDragLeave={handleDragLeave}
+                                onDrop={handleDrop}
+                                onClick={handleImportClick}
+                            >
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    onChange={handleFileChange}
+                                    accept=".csv"
+                                    className="hidden"
+                                />
+                                <div className="flex flex-col items-center gap-2 text-center text-sm text-muted-foreground">
+                                    <div className="rounded-full bg-muted p-3">
+                                        <FileUp className="h-6 w-6 text-muted-foreground" />
+                                    </div>
+                                    <p>
+                                        <span className="font-semibold text-foreground">Click to upload</span> or drag and drop
+                                    </p>
+                                    <p className="text-xs">CSV file (max. 10MB)</p>
                                 </div>
-                                <p>
-                                    <span className="font-semibold text-foreground">Click to upload</span> or drag and drop
-                                </p>
-                                <p className="text-xs">CSV file (max. 10MB)</p>
                             </div>
-                        </div>
-                    </DialogContent>
-                </Dialog>
+                        </DialogContent>
+                    </Dialog>
+                </div>
             </div>
             <div className="px-4 lg:px-6 flex flex-col gap-4">
                 <main className="w-full">
