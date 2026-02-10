@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import { CompaniesTable } from "./companies-table"
 import { Button } from "@/components/ui/button"
 import { Upload, FileUp } from "lucide-react"
@@ -16,6 +17,7 @@ import {
 import { cn } from "@/lib/utils"
 
 export default function CompaniesPage() {
+    const router = useRouter()
     const [isDialogOpen, setIsDialogOpen] = React.useState(false)
     const [isDragging, setIsDragging] = React.useState(false)
     const fileInputRef = React.useRef<HTMLInputElement>(null)
@@ -24,15 +26,58 @@ export default function CompaniesPage() {
         fileInputRef.current?.click()
     }
 
-    const processFile = (file: File) => {
+    const processFile = async (file: File) => {
         if (file.type !== "text/csv" && !file.name.endsWith(".csv")) {
             toast.error("Please upload a CSV file")
             return
         }
-        console.log("Selected file:", file.name)
-        toast.success(`File "${file.name}" ready for import`)
-        setIsDialogOpen(false)
-        // Backend logic will be added later
+
+        const formData = new FormData()
+        formData.append("file", file)
+
+        const loadingToast = toast.loading("Uploading companies...")
+
+        try {
+            const token = localStorage.getItem("token")
+            if (!token) {
+                router.push("/")
+                toast.error("Please login first")
+                return
+            }
+
+            const response = await fetch("http://localhost:8000/companies/upload", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+                body: formData,
+            })
+
+            if (response.status === 401) {
+                localStorage.removeItem("token")
+                router.push("/")
+                toast.error("Session expired, please login again")
+                return
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.detail || "Upload failed")
+            }
+
+            const data = await response.json()
+            toast.success(data.message)
+            setIsDialogOpen(false)
+
+            // Dispatch custom event to refresh table
+            window.dispatchEvent(new Event("companies-updated"))
+
+        } catch (error) {
+            console.error("Upload error:", error)
+            toast.error(error instanceof Error ? error.message : "Failed to upload file")
+        } finally {
+            toast.dismiss(loadingToast)
+        }
     }
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {

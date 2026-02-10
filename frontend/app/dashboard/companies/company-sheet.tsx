@@ -20,11 +20,13 @@ import {
 } from "@/components/ui/select"
 
 export type Company = {
-    id: string
+    id: number | string
     name: string
     employees: number
     location: string
-    createdAt: string
+    limit_val?: string | null
+    created_at?: string
+    createdAt?: string // Keep optional for backward compatibility if needed, but backend sends created_at
 }
 
 interface CompanySheetProps {
@@ -32,7 +34,7 @@ interface CompanySheetProps {
     isOpen: boolean
     onClose: () => void
     onSave: (company: Company) => void
-    onDelete: (id: string) => void
+    onDelete: (id: string | number) => void
 }
 
 export function CompanySheet({

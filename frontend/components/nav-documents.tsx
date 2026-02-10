@@ -41,7 +41,7 @@ export function NavDocuments({
   return (
     <SidebarGroup className="group-data-[collapsible=icon]:hidden">
       <SidebarGroupLabel>Documents</SidebarGroupLabel>
-      <SidebarMenu>
+      <SidebarMenu suppressHydrationWarning>
         {items.map((item) => {
           const isActive = pathname === item.url
           return (
@@ -60,6 +60,7 @@ export function NavDocuments({
                 <DropdownMenuTrigger asChild>
                   <SidebarMenuAction
                     showOnHover
+                    suppressHydrationWarning
                     className="rounded-sm data-[state=open]:bg-accent"
                   >
                     <MoreHorizontalIcon />

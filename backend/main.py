@@ -128,3 +128,83 @@ def health_db():
             cur.execute("SELECT 1;")
             value = cur.fetchone()[0]
     return {"db": "ok", "value": value}
+
+@app.post("/companies/upload", status_code=status.HTTP_201_CREATED)
+async def upload_companies(file: UploadFile = File(...), current_user: models.User = Depends(get_current_user)):
+    if not file.filename.endswith('.csv'):
+        raise HTTPException(status_code=400, detail="Invalid file format. Please upload a CSV file.")
+
+    content = await file.read()
+    decoded_content = content.decode('utf-8')
+    csv_reader = csv.DictReader(io.StringIO(decoded_content))
+    
+    # Get column mappings
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT csv_header, db_field FROM company_column_mappings")
+            mappings = {row['csv_header']: row['db_field'] for row in cur.fetchall()}
+            
+            # Prepare to insert
+            companies_to_insert = []
+            for row in csv_reader:
+                company_data = {}
+                for csv_header, value in row.items():
+                    if csv_header is None:
+                        continue
+                        
+                    db_field = None
+                    for map_header, map_field in mappings.items():
+                        if map_header and map_header.lower() == csv_header.lower():
+                            db_field = map_field
+                            break
+                    
+                    if db_field:
+                        company_data[db_field] = value
+                
+                # Only add if we have at least a name (or other required fields)
+                if 'name' in company_data:
+                    # Provide defaults for missing fields if necessary, though DB handles defaults for employees/created_at
+                     companies_to_insert.append(company_data)
+
+            # Insert companies
+            inserted_count = 0
+            for company in companies_to_insert:
+                # Use a somewhat safe insert that ignores extra keys if any, but we filtered by db_field
+                # Construct query dynamically based on available keys
+                keys = list(company.keys())
+                if not keys:
+                    continue
+                
+                columns = ', '.join(keys)
+                placeholders = ', '.join(['%s'] * len(keys))
+                values = list(company.values())
+                
+                # Simple append, no update on conflict as requested ("plus")
+                cur.execute(
+                    f"INSERT INTO companies ({columns}) VALUES ({placeholders})",
+                    values
+                )
+                inserted_count += 1
+            
+            conn.commit()
+            return {"message": f"Successfully imported {inserted_count} companies"}
+            
+    except Exception as e:
+        conn.rollback()
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.get("/companies", response_model=list[models.Company])
+async def get_companies(current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM companies ORDER BY created_at DESC")
+            companies = cur.fetchall()
+            return [models.Company(**company) for company in companies]
+    finally:
+        conn.close()

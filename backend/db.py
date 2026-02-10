@@ -19,6 +19,60 @@ def init_db():
                     is_active BOOLEAN DEFAULT TRUE
                 );
             """)
+            
+            # Create companies table
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS companies (
+                    id SERIAL PRIMARY KEY,
+                    name VARCHAR(255) NOT NULL,
+                    employees INT DEFAULT 0,
+                    location VARCHAR(255),
+                    limit_val VARCHAR(255),
+                    description TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
+            # Ensure description column exists for existing tables
+            try:
+                cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS description TEXT;")
+            except Exception:
+                pass # Should not fail with IF NOT EXISTS, but being safe.
+
+            # Create company_column_mappings table
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS company_column_mappings (
+                    id SERIAL PRIMARY KEY,
+                    csv_header VARCHAR(255) UNIQUE NOT NULL,
+                    db_field VARCHAR(255) NOT NULL
+                );
+            """)
+            
+            # Seed default mappings
+            # We use ON CONFLICT DO NOTHING to add new defaults without overwriting or duplicating
+            default_mappings = [
+                ('Company Name', 'name'),
+                ('Organization', 'name'),
+                ('Name', 'name'),
+                ('Number of Employees', 'employees'),
+                ('Employees', 'employees'),
+                ('Staff Count', 'employees'),
+                ('Location', 'location'),
+                ('City', 'location'),
+                ('Address', 'location'),
+                ('Limit', 'limit_val'),
+                ('clients_company', 'name'),
+                ('location_office', 'location'),
+                ('previous_call_summary', 'description'), # Just in case they want this mapped to something, but we don't have description field yet?
+                # The companies table has: id, name, employees, location, limit_val, created_at.
+                # Use only what we have.
+            ]
+            for header, field in default_mappings:
+                    cur.execute(
+                    "INSERT INTO company_column_mappings (csv_header, db_field) VALUES (%s, %s) ON CONFLICT (csv_header) DO NOTHING",
+                    (header, field)
+                )
+
             conn.commit()
     finally:
         conn.close()

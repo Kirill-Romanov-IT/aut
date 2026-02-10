@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useRouter } from "next/navigation"
 import {
     Table,
     TableBody,
@@ -20,28 +21,77 @@ const initialCompanies: Company[] = [
         name: "Acme Corp",
         employees: 120,
         location: "New York",
-        createdAt: "2023-10-01",
+        created_at: "2023-10-01",
     },
     {
         id: "2",
         name: "Globex Corporation",
         employees: 500,
         location: "San Francisco",
-        createdAt: "2023-08-15",
+        created_at: "2023-08-15",
     },
     {
         id: "3",
         name: "Soylent Corp",
         employees: 50,
         location: "Chicago",
-        createdAt: "2023-09-20",
+        created_at: "2023-09-20",
     },
 ]
 
 export function CompaniesTable() {
-    const [companies, setCompanies] = React.useState<Company[]>(initialCompanies)
+    const router = useRouter()
+    const [companies, setCompanies] = React.useState<Company[]>([])
     const [selectedCompany, setSelectedCompany] = React.useState<Company | null>(null)
     const [isSheetOpen, setIsSheetOpen] = React.useState(false)
+    const [isLoading, setIsLoading] = React.useState(true)
+
+    const fetchCompanies = React.useCallback(async () => {
+        setIsLoading(true)
+        try {
+            const token = localStorage.getItem("token")
+            if (!token) {
+                router.push("/")
+                return
+            }
+
+            const response = await fetch("http://localhost:8000/companies", {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            })
+
+            if (response.status === 401) {
+                localStorage.removeItem("token")
+                router.push("/")
+                return
+            }
+
+            if (response.ok) {
+                const data = await response.json()
+                setCompanies(data)
+            } else {
+                console.error("Failed to fetch companies")
+            }
+        } catch (error) {
+            console.error("Error fetching companies:", error)
+        } finally {
+            setIsLoading(false)
+        }
+    }, [router])
+
+    React.useEffect(() => {
+        fetchCompanies()
+
+        const handleUpdate = () => {
+            fetchCompanies()
+        }
+
+        window.addEventListener("companies-updated", handleUpdate)
+        return () => {
+            window.removeEventListener("companies-updated", handleUpdate)
+        }
+    }, [fetchCompanies])
 
     const handleRowClick = (company: Company) => {
         setSelectedCompany(company)
@@ -64,8 +114,9 @@ export function CompaniesTable() {
         if (updatedCompany.id) {
             setCompanies(companies.map(c => c.id === updatedCompany.id ? updatedCompany : c))
         } else {
-            const newId = (Math.max(0, ...companies.map(c => parseInt(c.id))) + 1).toString()
-            setCompanies([...companies, { ...updatedCompany, id: newId }])
+            // Optimistic update, ignoring ID collision for now since backend handles real IDs
+            //Ideally we should POST to create
+            setCompanies([updatedCompany, ...companies])
         }
     }
 
@@ -75,7 +126,7 @@ export function CompaniesTable() {
 
     return (
         <div className="flex flex-col gap-4">
-            <div className="rounded-md border bg-card text-card-foreground shadow-sm overflow-hidden">
+            <div className="rounded-md border bg-card text-card-foreground shadow-sm overflow-hidden min-h-[300px]">
                 <Table>
                     <TableHeader>
                         <TableRow className="hover:bg-transparent">
@@ -86,18 +137,34 @@ export function CompaniesTable() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {companies.map((company) => (
-                            <TableRow
-                                key={company.id}
-                                className="group cursor-pointer transition-colors hover:bg-muted/50"
-                                onClick={() => handleRowClick(company)}
-                            >
-                                <TableCell className="font-medium">{company.name}</TableCell>
-                                <TableCell>{company.employees}</TableCell>
-                                <TableCell>{company.location}</TableCell>
-                                <TableCell className="text-right text-muted-foreground">{company.createdAt}</TableCell>
+                        {isLoading ? (
+                            <TableRow>
+                                <TableCell colSpan={4} className="h-24 text-center">
+                                    Loading...
+                                </TableCell>
                             </TableRow>
-                        ))}
+                        ) : companies.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={4} className="h-24 text-center">
+                                    No companies found.
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            companies.map((company) => (
+                                <TableRow
+                                    key={company.id}
+                                    className="group cursor-pointer transition-colors hover:bg-muted/50"
+                                    onClick={() => handleRowClick(company)}
+                                >
+                                    <TableCell className="font-medium">{company.name}</TableCell>
+                                    <TableCell>{company.employees}</TableCell>
+                                    <TableCell>{company.location}</TableCell>
+                                    <TableCell className="text-right text-muted-foreground">
+                                        {company.created_at ? new Date(company.created_at).toLocaleDateString() : 'N/A'}
+                                    </TableCell>
+                                </TableRow>
+                            ))
+                        )}
                     </TableBody>
                 </Table>
             </div>
