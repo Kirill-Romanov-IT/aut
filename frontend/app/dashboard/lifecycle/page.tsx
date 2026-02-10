@@ -7,7 +7,7 @@ export default function LifecyclePage() {
             <div className="px-4 lg:px-6">
                 <h2 className="text-2xl font-bold tracking-tight">Lifecycle</h2>
                 <p className="text-sm text-muted-foreground">
-                    Track the lifecycle of your projects and clients.
+                    Track the lifecycle of your projects.
                 </p>
             </div>
             <SectionCards />

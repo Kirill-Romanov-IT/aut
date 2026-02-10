@@ -24,9 +24,5 @@ def test_init_db():
             result = cur.fetchone()
             assert list(result.values())[0] is True
             
-            # Check if clients table exists
-            cur.execute("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'clients')")
-            result = cur.fetchone()
-            assert list(result.values())[0] is True
     finally:
         conn.close()
