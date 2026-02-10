@@ -56,8 +56,8 @@ const data = {
       icon: BarChartIcon,
     },
     {
-      title: "Projects",
-      url: "/dashboard/projects",
+      title: "Companies",
+      url: "/dashboard/companies",
       icon: FolderIcon,
     },
     {
