@@ -91,9 +91,44 @@ export function CompaniesTable({
         setIsSheetOpen(true)
     }
 
-    const handleSave = (updatedCompany: Company) => {
-        // Since state is lifted, we notify the parent to update
-        onUpdate()
+    const handleSave = async (updatedCompany: Company) => {
+        const loadingToast = toast.loading("Updating company...")
+        try {
+            const token = localStorage.getItem("token")
+            if (!token) {
+                router.push("/")
+                return
+            }
+
+            // Ensure ID is sent correctly (backend expects int)
+            const companyId = typeof updatedCompany.id === 'string' ? parseInt(updatedCompany.id) : updatedCompany.id
+
+            const response = await fetch(`http://localhost:8000/companies/${companyId}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    name: updatedCompany.name,
+                    employees: updatedCompany.employees,
+                    location: updatedCompany.location
+                }),
+            })
+
+            if (response.ok) {
+                toast.success("Company updated successfully")
+                onUpdate()
+            } else {
+                const errorData = await response.json()
+                toast.error(errorData.detail || "Failed to update company")
+            }
+        } catch (error) {
+            console.error("Update error:", error)
+            toast.error("An error occurred during update")
+        } finally {
+            toast.dismiss(loadingToast)
+        }
     }
 
     const handleDelete = async (id: string | number) => {

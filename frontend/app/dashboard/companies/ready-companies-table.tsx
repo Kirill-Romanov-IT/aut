@@ -165,7 +165,10 @@ export function ReadyCompaniesTable({
                     location: comp.location || "",
                     employees: comp.employees || 0,
                     status: comp.status || "new",
-                    scheduledAt: comp.scheduled_at || new Date().toISOString()
+                    scheduledAt: comp.scheduled_at || new Date().toISOString(),
+                    contactName: comp.contact_name || "",
+                    contactSurname: comp.contact_surname || "",
+                    contactPhone: comp.contact_phone || ""
                 }))
 
                 localStorage.setItem("lifecycle-kanban-state", JSON.stringify([...currentKanban, ...newKanbanCompanies]))

@@ -27,14 +27,17 @@ import { CSS } from "@dnd-kit/utilities"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ZapIcon, PencilIcon, CheckIcon, XIcon, Trash2Icon } from "lucide-react"
+import { ZapIcon, PencilIcon, CheckIcon, XIcon, Trash2Icon, Building2Icon, MapPinIcon, UserIcon, PhoneIcon } from "lucide-react"
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
     DialogDescription,
+    DialogClose,
 } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { toast } from "sonner"
 
 // --- Types ---
 type CompanyStatus = "new" | "not-responding" | "ivr" | "hang-up" | "dm-found-call-time"
@@ -46,6 +49,9 @@ type Company = {
     employees: number
     status: CompanyStatus
     scheduledAt: string // ISO string for sorting
+    contactName: string
+    contactSurname: string
+    contactPhone: string
 }
 
 type Column = {
@@ -81,16 +87,16 @@ const generateRandomCallDate = () => {
 
 // --- Mock Data ---
 const MOCK_COMPANIES: Company[] = [
-    { id: "1", name: "Vladislav Sayko", location: "Moscow", employees: 120, status: "new", scheduledAt: generateRandomCallDate() },
-    { id: "2", name: "Global Solution", location: "St. Petersburg", employees: 45, status: "new", scheduledAt: generateRandomCallDate() },
-    { id: "3", name: "Tech Innovators", location: "Kazan", employees: 200, status: "ivr", scheduledAt: generateRandomCallDate() },
-    { id: "4", name: "SoftServe", location: "Novosibirsk", employees: 15, status: "dm-found-call-time", scheduledAt: generateRandomCallDate() },
-    { id: "5", name: "NextGen", location: "Yekaterinburg", employees: 500, status: "not-responding", scheduledAt: generateRandomCallDate() },
-    { id: "6", name: "Alpha Group", location: "Samara", employees: 100, status: "ivr", scheduledAt: generateRandomCallDate() },
-    { id: "7", name: "Omega Corp", location: "Omsk", employees: 50, status: "hang-up", scheduledAt: generateRandomCallDate() },
-    { id: "8", name: "Delta Systems", location: "Ufa", employees: 300, status: "dm-found-call-time", scheduledAt: generateRandomCallDate() },
-    { id: "9", name: "Zeta Inc", location: "Perm", employees: 80, status: "new", scheduledAt: generateRandomCallDate() },
-    { id: "10", name: "Beta LLC", location: "Voronezh", employees: 60, status: "ivr", scheduledAt: generateRandomCallDate() },
+    { id: "1", name: "Vladislav Sayko", location: "Moscow", employees: 120, status: "new", scheduledAt: generateRandomCallDate(), contactName: "Vladislav", contactSurname: "Sayko", contactPhone: "+7 900 123-45-67" },
+    { id: "2", name: "Global Solution", location: "St. Petersburg", employees: 45, status: "new", scheduledAt: generateRandomCallDate(), contactName: "Anna", contactSurname: "Ivanova", contactPhone: "+7 911 222-33-44" },
+    { id: "3", name: "Tech Innovators", location: "Kazan", employees: 200, status: "ivr", scheduledAt: generateRandomCallDate(), contactName: "Dmitry", contactSurname: "Petrov", contactPhone: "+7 922 333-44-55" },
+    { id: "4", name: "SoftServe", location: "Novosibirsk", employees: 15, status: "dm-found-call-time", scheduledAt: generateRandomCallDate(), contactName: "Elena", contactSurname: "Sidorova", contactPhone: "+7 933 444-55-66" },
+    { id: "5", name: "NextGen", location: "Yekaterinburg", employees: 500, status: "not-responding", scheduledAt: generateRandomCallDate(), contactName: "Sergey", contactSurname: "Kozlov", contactPhone: "+7 944 555-66-77" },
+    { id: "6", name: "Alpha Group", location: "Samara", employees: 100, status: "ivr", scheduledAt: generateRandomCallDate(), contactName: "Olga", contactSurname: "Morozova", contactPhone: "+7 955 666-77-88" },
+    { id: "7", name: "Omega Corp", location: "Omsk", employees: 50, status: "hang-up", scheduledAt: generateRandomCallDate(), contactName: "Igor", contactSurname: "Volkov", contactPhone: "+7 966 777-88-99" },
+    { id: "8", name: "Delta Systems", location: "Ufa", employees: 300, status: "dm-found-call-time", scheduledAt: generateRandomCallDate(), contactName: "Maria", contactSurname: "Popova", contactPhone: "+7 977 888-99-00" },
+    { id: "9", name: "Zeta Inc", location: "Perm", employees: 80, status: "new", scheduledAt: generateRandomCallDate(), contactName: "Alexey", contactSurname: "Sokolov", contactPhone: "+7 988 999-00-11" },
+    { id: "10", name: "Beta LLC", location: "Voronezh", employees: 60, status: "ivr", scheduledAt: generateRandomCallDate(), contactName: "Natalia", contactSurname: "Vasilieva", contactPhone: "+7 999 000-11-22" },
 ]
 
 // --- Components ---
@@ -141,12 +147,16 @@ function SortableCompanyCard({ company, onClick }: { company: Company, onClick: 
                     </div>
                     <CardDescription className="text-[10px] line-clamp-1">{company.location}</CardDescription>
                 </CardHeader>
-                <CardContent className="p-4 pt-2">
-                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                        <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary">
-                            CP
+                <CardContent className="p-4 pt-2 space-y-2">
+                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground bg-muted/30 p-1.5 rounded-lg border border-muted-foreground/5">
+                        <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">
+                            {company.contactName?.charAt(0) || "C"}
                         </div>
-                        <span className="truncate">Contact Person</span>
+                        <span className="truncate flex-1">{company.contactName} {company.contactSurname}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-[9px] text-muted-foreground/80 px-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary/60"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
+                        <span className="font-mono">{company.contactPhone}</span>
                     </div>
                 </CardContent>
             </Card>
@@ -192,12 +202,16 @@ function DragOverlayCard({ company }: { company: Company }) {
                 </div>
                 <CardDescription className="text-[10px] line-clamp-1">{company.location}</CardDescription>
             </CardHeader>
-            <CardContent className="p-4 pt-2">
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                    <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary">
-                        CP
+            <CardContent className="p-4 pt-2 space-y-2">
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground bg-muted/30 p-1.5 rounded-lg border border-muted-foreground/5">
+                    <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">
+                        {company.contactName?.charAt(0) || "C"}
                     </div>
-                    <span className="truncate">Contact Person</span>
+                    <span className="truncate flex-1">{company.contactName} {company.contactSurname}</span>
+                </div>
+                <div className="flex items-center gap-2 text-[9px] text-muted-foreground/80 px-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary/60"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z" /></svg>
+                    <span className="font-mono">{company.contactPhone}</span>
                 </div>
             </CardContent>
         </Card>
@@ -211,6 +225,8 @@ export function LifecycleKanban() {
     const [selectedCompany, setSelectedCompany] = React.useState<Company | null>(null)
     const [isEditingTime, setIsEditingTime] = React.useState(false)
     const [tempTime, setTempTime] = React.useState("")
+    const [editingField, setEditingField] = React.useState<string | null>(null)
+    const [tempValues, setTempValues] = React.useState<Partial<Company>>({})
 
     // Hydration fix & LocalStorage Load
     React.useEffect(() => {
@@ -269,6 +285,28 @@ export function LifecycleKanban() {
         if (!selectedCompany) return
         setTempTime(new Date(selectedCompany.scheduledAt).toISOString().slice(0, 16))
         setIsEditingTime(true)
+    }
+
+    const handleStartEdit = (field: string, value: string) => {
+        setEditingField(field)
+        setTempValues(prev => ({ ...prev, [field]: value }))
+    }
+
+    const handleCancelEdit = () => {
+        setEditingField(null)
+        setTempValues(selectedCompany || {})
+    }
+
+    const handleFieldSave = (field: keyof Company) => {
+        if (!selectedCompany) return
+        const newValue = tempValues[field]
+
+        setCompanies(prev => prev.map(c =>
+            c.id === selectedCompany.id ? { ...c, [field]: newValue } : c
+        ))
+        setSelectedCompany(prev => prev ? { ...prev, [field]: newValue } : null)
+        setEditingField(null)
+        toast.success(`${field.replace(/([A-Z])/g, ' $1').trim()} updated`)
     }
 
     const handleDelete = (id: string) => {
@@ -405,101 +443,169 @@ export function LifecycleKanban() {
                 if (!open) {
                     setSelectedCompany(null)
                     setIsEditingTime(false)
+                    setEditingField(null)
                 }
             }}>
-                <DialogContent className="sm:max-w-[425px] rounded-2xl border-none shadow-2xl p-0 overflow-hidden bg-background/95 backdrop-blur-sm">
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation()
-                            if (selectedCompany) {
-                                handleDelete(selectedCompany.id)
-                                setSelectedCompany(null)
-                                setIsEditingTime(false)
-                            }
-                        }}
-                        className="absolute left-4 top-4 p-2 rounded-full hover:bg-red-50 text-red-500 transition-all z-10 hover:scale-110 active:scale-95"
-                        title="Delete Company"
-                    >
-                        <Trash2Icon className="h-4 w-4" />
-                    </button>
-                    <div className="bg-primary/5 p-8 flex flex-col items-center text-center gap-6">
-                        <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                            <span className="text-2xl font-bold text-primary">
-                                {selectedCompany?.name.charAt(0)}
-                            </span>
-                        </div>
-                        <div className="space-y-2">
-                            <DialogTitle className="text-xl font-bold tracking-tight">{selectedCompany?.name}</DialogTitle>
-                            <DialogDescription className="sr-only">
-                                Detailed information about {selectedCompany?.name}
-                            </DialogDescription>
-                            <div className="flex items-center justify-center gap-2">
-                                <Badge variant="secondary" className="px-3 py-1 rounded-full text-[10px] font-medium uppercase tracking-wider">
-                                    {selectedCompany?.status === 'new' && "New Company"}
-                                    {selectedCompany?.status === 'not-responding' && "No Answer"}
-                                    {selectedCompany?.status === 'ivr' && "IVR"}
-                                    {selectedCompany?.status === 'hang-up' && "Hang Up"}
-                                    {selectedCompany?.status === 'dm-found-call-time' && "DM Found"}
-                                </Badge>
+                <DialogContent className="sm:max-w-[425px] rounded-2xl border-none shadow-2xl p-0 bg-background/95 backdrop-blur-sm">
+                    <DialogHeader className="p-0">
+                        <div className="bg-primary/5 p-8 flex flex-col items-center text-center gap-6 rounded-t-2xl relative">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    if (selectedCompany) {
+                                        handleDelete(selectedCompany.id)
+                                        setSelectedCompany(null)
+                                        setIsEditingTime(false)
+                                    }
+                                }}
+                                className="absolute left-4 top-4 p-2 rounded-full hover:bg-red-50 text-red-500 transition-all z-10 hover:scale-110 active:scale-95"
+                                title="Delete Company"
+                            >
+                                <Trash2Icon className="h-4 w-4" />
+                            </button>
+
+                            <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                                <span className="text-2xl font-bold text-primary">
+                                    {selectedCompany?.name.charAt(0)}
+                                </span>
+                            </div>
+                            <div className="space-y-2">
+                                <DialogTitle className="text-xl font-bold tracking-tight">{selectedCompany?.name}</DialogTitle>
+                                <DialogDescription className="sr-only">
+                                    Detailed information about {selectedCompany?.name}
+                                </DialogDescription>
+                                <div className="flex items-center justify-center gap-2">
+                                    <Badge variant="secondary" className="px-3 py-1 rounded-full text-[10px] font-medium uppercase tracking-wider">
+                                        {selectedCompany?.status === 'new' && "New Company"}
+                                        {selectedCompany?.status === 'not-responding' && "No Answer"}
+                                        {selectedCompany?.status === 'ivr' && "IVR"}
+                                        {selectedCompany?.status === 'hang-up' && "Hang Up"}
+                                        {selectedCompany?.status === 'dm-found-call-time' && "DM Found"}
+                                    </Badge>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                    </DialogHeader>
 
                     <div className="p-8 space-y-6">
-                        <div className="space-y-3">
-                            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
-                                Scheduled for:
-                            </label>
-                            <div className="flex items-center gap-3 p-4 rounded-xl bg-primary/5 border border-primary/10">
-                                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                        <div className="grid gap-4">
+                            {/* Editable Fields */}
+                            {[
+                                { label: "Company Name", field: "name", icon: <Building2Icon className="h-4 w-4" /> },
+                                { label: "Location", field: "location", icon: <MapPinIcon className="h-4 w-4" /> },
+                                { label: "Contact Name", field: "contactName", icon: <UserIcon className="h-4 w-4" /> },
+                                { label: "Surname", field: "contactSurname", icon: <UserIcon className="h-4 w-4" /> },
+                                { label: "Phone Number", field: "contactPhone", icon: <PhoneIcon className="h-4 w-4" /> },
+                            ].map(({ label, field, icon }) => {
+                                const isEditing = editingField === field
+                                const value = isEditing ? (tempValues[field as keyof Company] as string) : (selectedCompany?.[field as keyof Company] as string || "-")
+
+                                return (
+                                    <div key={field} className="space-y-2">
+                                        <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                                            {label}
+                                        </label>
+                                        <div className="flex items-center gap-3 p-3 rounded-xl bg-muted/30 border border-muted/20 focus-within:border-primary/30 transition-colors">
+                                            <div className="h-8 w-8 rounded-lg bg-background flex items-center justify-center text-muted-foreground">
+                                                {icon}
+                                            </div>
+                                            {isEditing ? (
+                                                <div className="flex items-center gap-2 flex-1">
+                                                    <Input
+                                                        value={tempValues[field as keyof Company] as string || ""}
+                                                        onChange={(e) => setTempValues(prev => ({ ...prev, [field]: e.target.value }))}
+                                                        className="h-8 py-0 bg-transparent border-none focus-visible:ring-0 text-sm font-medium"
+                                                        autoFocus
+                                                    />
+                                                    <div className="flex items-center gap-1">
+                                                        <button
+                                                            onClick={() => handleFieldSave(field as keyof Company)}
+                                                            className="p-1 hover:bg-green-100 text-green-600 rounded-md"
+                                                        >
+                                                            <CheckIcon className="h-4 w-4" />
+                                                        </button>
+                                                        <button
+                                                            onClick={handleCancelEdit}
+                                                            className="p-1 hover:bg-red-100 text-red-600 rounded-md"
+                                                        >
+                                                            <XIcon className="h-4 w-4" />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center justify-between flex-1 group/field">
+                                                    <span className="text-sm font-medium text-foreground/80">{value}</span>
+                                                    <button
+                                                        onClick={() => handleStartEdit(field, selectedCompany?.[field as keyof Company] as string || "")}
+                                                        className="p-1.5 opacity-0 group-hover/field:opacity-100 hover:bg-primary/10 text-primary/60 rounded-md transition-all"
+                                                    >
+                                                        <PencilIcon className="h-4 w-4" />
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )
+                            })}
+
+                            <div className="space-y-2">
+                                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                                    Scheduled for:
+                                </label>
+                                <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
+                                    <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                                    </div>
+                                    {isEditingTime ? (
+                                        <div className="flex items-center gap-2 flex-1">
+                                            <input
+                                                type="datetime-local"
+                                                value={tempTime}
+                                                onChange={(e) => setTempTime(e.target.value)}
+                                                className="bg-background border rounded-md px-2 py-1 text-xs font-semibold text-primary/80 focus:ring-1 focus:ring-primary w-full"
+                                            />
+                                            <button
+                                                onClick={handleTimeSave}
+                                                className="p-1 hover:bg-green-100 text-green-600 rounded-md transition-colors"
+                                                title="Save"
+                                            >
+                                                <CheckIcon className="h-4 w-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => setIsEditingTime(false)}
+                                                className="p-1 hover:bg-red-100 text-red-600 rounded-md transition-colors"
+                                                title="Cancel"
+                                            >
+                                                <XIcon className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center justify-between flex-1 group/field">
+                                            <span className="text-sm font-semibold text-primary/80">
+                                                {selectedCompany && formatCallDate(selectedCompany.scheduledAt)}
+                                            </span>
+                                            <button
+                                                onClick={startEditingTime}
+                                                className="p-1.5 opacity-0 group-hover/field:opacity-100 hover:bg-primary/10 text-primary/60 hover:text-primary rounded-md transition-all active:scale-90"
+                                                title="Edit Time"
+                                            >
+                                                <PencilIcon className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
-                                {isEditingTime ? (
-                                    <div className="flex items-center gap-2 flex-1">
-                                        <input
-                                            type="datetime-local"
-                                            value={tempTime}
-                                            onChange={(e) => setTempTime(e.target.value)}
-                                            className="bg-background border rounded-md px-2 py-1 text-sm font-semibold text-primary/80 focus:ring-1 focus:ring-primary w-full"
-                                        />
-                                        <button
-                                            onClick={handleTimeSave}
-                                            className="p-1 hover:bg-green-100 text-green-600 rounded-md transition-colors"
-                                            title="Save"
-                                        >
-                                            <CheckIcon className="h-4 w-4" />
-                                        </button>
-                                        <button
-                                            onClick={() => setIsEditingTime(false)}
-                                            className="p-1 hover:bg-red-100 text-red-600 rounded-md transition-colors"
-                                            title="Cancel"
-                                        >
-                                            <XIcon className="h-4 w-4" />
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center justify-between flex-1">
-                                        <span className="text-sm font-semibold text-primary/80">
-                                            {selectedCompany && formatCallDate(selectedCompany.scheduledAt)}
-                                        </span>
-                                        <button
-                                            onClick={startEditingTime}
-                                            className="p-1.5 hover:bg-primary/10 text-primary/60 hover:text-primary rounded-md transition-all active:scale-90"
-                                            title="Edit Time"
-                                        >
-                                            <PencilIcon className="h-4 w-4" />
-                                        </button>
-                                    </div>
-                                )}
                             </div>
                         </div>
 
-                        <button
-                            onClick={() => setSelectedCompany(null)}
-                            className="w-full py-3 px-4 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity active:scale-[0.98]"
-                        >
-                            Close
-                        </button>
+                        <div className="flex flex-col gap-2">
+                            <DialogClose asChild>
+                                <button
+                                    className="w-full py-3 px-4 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity active:scale-[0.98]"
+                                >
+                                    Close
+                                </button>
+                            </DialogClose>
+                        </div>
                     </div>
                 </DialogContent>
             </Dialog>

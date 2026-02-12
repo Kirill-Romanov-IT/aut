@@ -226,6 +226,33 @@ async def get_companies(current_user: models.User = Depends(get_current_user)):
             return [models.Company(**company) for company in companies]
     finally:
         conn.close()
+@app.put("/companies/{company_id}", response_model=models.Company)
+async def update_company(company_id: int, company_update: models.CompanyCreate, current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE companies 
+                SET name = %s, employees = %s, location = %s
+                WHERE id = %s
+                RETURNING *
+                """,
+                (company_update.name, company_update.employees, company_update.location, company_id)
+            )
+            updated_company = cur.fetchone()
+            if not updated_company:
+                raise HTTPException(status_code=404, detail="Company not found")
+            conn.commit()
+            return models.Company(**updated_company)
+    except Exception as e:
+        conn.rollback()
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
 
 @app.post("/companies/bulk-delete")
 async def bulk_delete_companies(ids: list[int | str], current_user: models.User = Depends(get_current_user)):
