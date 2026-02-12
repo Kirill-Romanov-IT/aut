@@ -14,6 +14,7 @@ import {
     DragEndEvent,
     defaultDropAnimationSideEffects,
     DropAnimation,
+    useDroppable,
 } from "@dnd-kit/core"
 import {
     arrayMove,
@@ -27,7 +28,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 
 // --- Types ---
-type CompanyStatus = "call-back" | "decision-maker"
+type CompanyStatus = "not-responding" | "ivr" | "hang-up" | "dm-found-call-time"
 
 type Company = {
     id: string
@@ -42,16 +43,20 @@ type Column = {
     title: string
 }
 
+const STORAGE_KEY = "lifecycle-kanban-state"
+
 // --- Mock Data ---
 const MOCK_COMPANIES: Company[] = [
-    { id: "1", name: "Global Solution", location: "Moscow", employees: 120, status: "call-back" },
-    { id: "2", name: "Tech Innovators", location: "St. Petersburg", employees: 45, status: "decision-maker" },
-    { id: "3", name: "SoftServe", location: "Kazan", employees: 200, status: "call-back" },
-    { id: "4", name: "NextGen", location: "Novosibirsk", employees: 15, status: "decision-maker" },
-    { id: "5", name: "Alpha Group", location: "Yekaterinburg", employees: 500, status: "call-back" },
-    { id: "6", name: "Omega Corp", location: "Samara", employees: 100, status: "decision-maker" },
-    { id: "7", name: "Delta Systems", location: "Omsk", employees: 50, status: "decision-maker" },
-    { id: "8", name: "Zeta Inc", location: "Ufa", employees: 300, status: "call-back" },
+    { id: "1", name: "Global Solution", location: "Moscow", employees: 120, status: "not-responding" },
+    { id: "2", name: "Tech Innovators", location: "St. Petersburg", employees: 45, status: "ivr" },
+    { id: "3", name: "SoftServe", location: "Kazan", employees: 200, status: "hang-up" },
+    { id: "4", name: "NextGen", location: "Novosibirsk", employees: 15, status: "dm-found-call-time" },
+    { id: "5", name: "Alpha Group", location: "Yekaterinburg", employees: 500, status: "not-responding" },
+    { id: "6", name: "Omega Corp", location: "Samara", employees: 100, status: "ivr" },
+    { id: "7", name: "Delta Systems", location: "Omsk", employees: 50, status: "hang-up" },
+    { id: "8", name: "Zeta Inc", location: "Ufa", employees: 300, status: "dm-found-call-time" },
+    { id: "9", name: "Beta LLC", location: "Perm", employees: 80, status: "not-responding" },
+    { id: "10", name: "Gamma Ltd", location: "Voronezh", employees: 60, status: "ivr" },
 ]
 
 // --- Components ---
@@ -72,8 +77,6 @@ function SortableCompanyCard({ company }: { company: Company }) {
         }
     })
 
-    // We use CSS.Transform to avoid layout shifts when dragging.
-    // CSS.Translate is generally better for performance but might not handle everything.
     const style = {
         transform: CSS.Translate.toString(transform),
         transition,
@@ -94,18 +97,17 @@ function SortableCompanyCard({ company }: { company: Company }) {
             <Card className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow">
                 <CardHeader className="p-4 pb-2">
                     <div className="flex justify-between items-start">
-                        <CardTitle className="text-base font-medium">{company.name}</CardTitle>
-                        <Badge variant="outline" className="text-[10px]">{company.employees} emp.</Badge>
+                        <CardTitle className="text-sm font-medium">{company.name}</CardTitle>
+                        <Badge variant="outline" className="text-[10px] whitespace-nowrap">{company.employees} emp.</Badge>
                     </div>
-                    <CardDescription className="text-xs line-clamp-1">{company.location}</CardDescription>
+                    <CardDescription className="text-[10px] line-clamp-1">{company.location}</CardDescription>
                 </CardHeader>
                 <CardContent className="p-4 pt-2">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        {/* Placeholder for contact info */}
-                        <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
+                    <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                        <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary">
                             CP
                         </div>
-                        <span>Contact Person</span>
+                        <span className="truncate">Contact Person</span>
                     </div>
                 </CardContent>
             </Card>
@@ -125,12 +127,12 @@ function KanbanColumn({ column, companies }: { column: Column, companies: Compan
     return (
         <div className="flex flex-col gap-4 rounded-xl bg-muted/40 p-4 border h-full min-h-[500px]">
             <div className="flex items-center justify-between">
-                <h3 className="font-semibold leading-none tracking-tight">{column.title}</h3>
-                <Badge variant="secondary">{companies.length}</Badge>
+                <h3 className="text-sm font-semibold leading-none tracking-tight line-clamp-2 min-h-[2rem] flex items-center">{column.title}</h3>
+                <Badge variant="secondary" className="text-[10px]">{companies.length}</Badge>
             </div>
-            <div className="flex-1 overflow-y-auto pr-2">
+            <div className="flex-1 overflow-y-auto pr-1">
                 <SortableContext items={companies.map(c => c.id)} strategy={verticalListSortingStrategy}>
-                    <div ref={setNodeRef} className="flex flex-col gap-3 min-h-[200px] p-1">
+                    <div ref={setNodeRef} className="flex flex-col gap-3 min-h-[150px] p-1">
                         {companies.map((company) => (
                             <SortableCompanyCard key={company.id} company={company} />
                         ))}
@@ -143,20 +145,20 @@ function KanbanColumn({ column, companies }: { column: Column, companies: Compan
 
 function DragOverlayCard({ company }: { company: Company }) {
     return (
-        <Card className="cursor-grabbing shadow-lg w-[300px] opacity-90 ring-2 ring-primary">
+        <Card className="cursor-grabbing shadow-lg w-[260px] opacity-90 ring-2 ring-primary">
             <CardHeader className="p-4 pb-2">
                 <div className="flex justify-between items-start">
-                    <CardTitle className="text-base font-medium">{company.name}</CardTitle>
-                    <Badge variant="outline" className="text-[10px]">{company.employees} emp.</Badge>
+                    <CardTitle className="text-sm font-medium">{company.name}</CardTitle>
+                    <Badge variant="outline" className="text-[10px] whitespace-nowrap">{company.employees} emp.</Badge>
                 </div>
-                <CardDescription className="text-xs line-clamp-1">{company.location}</CardDescription>
+                <CardDescription className="text-[10px] line-clamp-1">{company.location}</CardDescription>
             </CardHeader>
             <CardContent className="p-4 pt-2">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
+                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                    <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center text-[9px] font-bold text-primary">
                         CP
                     </div>
-                    <span>Contact Person</span>
+                    <span className="truncate">Contact Person</span>
                 </div>
             </CardContent>
         </Card>
@@ -164,8 +166,29 @@ function DragOverlayCard({ company }: { company: Company }) {
 }
 
 export function LifecycleKanban() {
+    const [mounted, setMounted] = React.useState(false)
     const [companies, setCompanies] = React.useState<Company[]>(MOCK_COMPANIES)
     const [activeId, setActiveId] = React.useState<string | null>(null)
+
+    // Hydration fix & LocalStorage Load
+    React.useEffect(() => {
+        const saved = localStorage.getItem(STORAGE_KEY)
+        if (saved) {
+            try {
+                setCompanies(JSON.parse(saved))
+            } catch (e) {
+                console.error("Failed to load kanban state", e)
+            }
+        }
+        setMounted(true)
+    }, [])
+
+    // LocalStorage Save
+    React.useEffect(() => {
+        if (mounted) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(companies))
+        }
+    }, [companies, mounted])
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -179,8 +202,10 @@ export function LifecycleKanban() {
     )
 
     const columns: Column[] = [
-        { id: "call-back", title: "Перезвонить позже" },
-        { id: "decision-maker", title: "Известен ЛПР" }
+        { id: "not-responding", title: "Не отвечает" },
+        { id: "ivr", title: "IVR" },
+        { id: "hang-up", title: "Дозванились но бросает трубку" },
+        { id: "dm-found-call-time", title: "Выяснили кто принимает решение - звонить по времени" }
     ]
 
     const handleDragStart = (event: DragStartEvent) => {
@@ -202,14 +227,12 @@ export function LifecycleKanban() {
 
         if (!isActiveACompany) return
 
-        // Scenario 1: Dragging over another company
         if (isActiveACompany && isOverACompany) {
             setCompanies((companies) => {
                 const activeIndex = companies.findIndex((c) => c.id === activeId)
                 const overIndex = companies.findIndex((c) => c.id === overId)
 
                 const newCompanies = [...companies];
-                // Update status if moving to a company in a different column
                 if (companies[activeIndex].status !== companies[overIndex].status) {
                     newCompanies[activeIndex].status = companies[overIndex].status
                 }
@@ -218,7 +241,6 @@ export function LifecycleKanban() {
             })
         }
 
-        // Scenario 2: Dragging over a column container (dropping into empty space or column header)
         if (isActiveACompany && isOverAColumn) {
             const overColumnId = overId as CompanyStatus;
             setCompanies((companies) => {
@@ -227,8 +249,6 @@ export function LifecycleKanban() {
                 if (companies[activeIndex].status !== overColumnId) {
                     const newCompanies = [...companies];
                     newCompanies[activeIndex].status = overColumnId
-                    // Move to the end of that column visually is handled by sortable strategy implicitly if we reorder
-                    // But since we just change status, arrayMove isn't strictly needed unless we want to control position.
                     return arrayMove(newCompanies, activeIndex, activeIndex)
                 }
                 return companies
@@ -244,6 +264,17 @@ export function LifecycleKanban() {
         companies.find(c => c.id === activeId),
         [activeId, companies])
 
+    if (!mounted) {
+        return (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 h-full items-start opacity-0">
+                {/* Placeholder to avoid jump */}
+                {columns.map(col => (
+                    <div key={col.id} className="rounded-xl bg-muted/40 p-4 border h-[500px]" />
+                ))}
+            </div>
+        )
+    }
+
     return (
         <DndContext
             sensors={sensors}
@@ -252,7 +283,7 @@ export function LifecycleKanban() {
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
         >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full items-start">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 h-full items-start animate-in fade-in duration-500">
                 {columns.map(col => (
                     <KanbanColumn
                         key={col.id}
@@ -269,6 +300,3 @@ export function LifecycleKanban() {
     )
 }
 
-// Helper needed because useDroppable isn't exported directly from SortableContext for columns usually, 
-// but we used useDroppable in KanbanColumn directly.
-import { useDroppable } from "@dnd-kit/core"
