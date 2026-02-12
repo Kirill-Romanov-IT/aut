@@ -1,5 +1,5 @@
 import { SectionCards } from "@/components/section-cards"
-import { ChartAreaInteractive } from "@/components/chart-area-interactive"
+import { LifecycleKanban } from "@/components/lifecycle-kanban"
 
 export default function LifecyclePage() {
     return (
@@ -11,10 +11,8 @@ export default function LifecyclePage() {
                 </p>
             </div>
             <SectionCards />
-            <div className="px-4 lg:px-6">
-                <div className="bg-muted/50 flex aspect-video items-center justify-center rounded-xl border">
-                    <p className="text-muted-foreground">Lifecycle visualization coming soon...</p>
-                </div>
+            <div className="px-4 lg:px-6 h-full min-h-[600px]">
+                <LifecycleKanban />
             </div>
         </div>
     )
