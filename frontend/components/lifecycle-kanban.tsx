@@ -27,7 +27,7 @@ import { CSS } from "@dnd-kit/utilities"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ZapIcon, PencilIcon, CheckIcon, XIcon } from "lucide-react"
+import { ZapIcon, PencilIcon, CheckIcon, XIcon, Trash2Icon } from "lucide-react"
 import {
     Dialog,
     DialogContent,
@@ -129,11 +129,8 @@ function SortableCompanyCard({ company, onClick }: { company: Company, onClick: 
     return (
         <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="touch-none group">
             <Card
-                className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow relative"
+                className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow relative overflow-hidden"
                 onClick={(e) => {
-                    // Only trigger click if not dragging
-                    // attributes/listeners handle drag, but we want a way to click.
-                    // dnd-kit pointer sensor has distance constraint, so we can detect real clicks.
                     onClick(company)
                 }}
             >
@@ -263,6 +260,10 @@ export function LifecycleKanban() {
         if (!selectedCompany) return
         setTempTime(new Date(selectedCompany.scheduledAt).toISOString().slice(0, 16))
         setIsEditingTime(true)
+    }
+
+    const handleDelete = (id: string) => {
+        setCompanies(prev => prev.filter(c => c.id !== id))
     }
 
     const sensors = useSensors(
@@ -395,6 +396,20 @@ export function LifecycleKanban() {
                 }
             }}>
                 <DialogContent className="sm:max-w-[425px] rounded-2xl border-none shadow-2xl p-0 overflow-hidden bg-background/95 backdrop-blur-sm">
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            if (selectedCompany) {
+                                handleDelete(selectedCompany.id)
+                                setSelectedCompany(null)
+                                setIsEditingTime(false)
+                            }
+                        }}
+                        className="absolute left-4 top-4 p-2 rounded-full hover:bg-red-50 text-red-500 transition-all z-10 hover:scale-110 active:scale-95"
+                        title="Delete Company"
+                    >
+                        <Trash2Icon className="h-4 w-4" />
+                    </button>
                     <div className="bg-primary/5 p-8 flex flex-col items-center text-center gap-6">
                         <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
                             <span className="text-2xl font-bold text-primary">
