@@ -1,3 +1,5 @@
+"use client"
+
 import { VoiceAIQueue } from "@/components/voice-ai-queue"
 
 export default function TeamPage() {

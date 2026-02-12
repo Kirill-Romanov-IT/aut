@@ -1,5 +1,9 @@
+"use client"
+
+import { useLanguage } from "@/components/language-provider"
 import GenericPage from "../generic-page"
 
 export default function DataLibraryPage() {
-    return <GenericPage title="Data Library" description="Access and manage your stored data sets." />
+    const { t } = useLanguage()
+    return <GenericPage title={t('dataLibraryTitle')} description={t('dataLibraryDescription')} />
 }

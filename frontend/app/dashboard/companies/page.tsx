@@ -15,6 +15,7 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
+import { useLanguage } from "@/components/language-provider"
 
 import {
     Tabs,
@@ -27,8 +28,10 @@ import { ReadyCompaniesTable, ReadyCompany } from "./ready-companies-table"
 
 export default function CompaniesPage() {
     const router = useRouter()
+    const { t } = useLanguage()
     const [isDialogOpen, setIsDialogOpen] = React.useState(false)
     const [isDragging, setIsDragging] = React.useState(false)
+    // ... rest of state
     const [companies, setCompanies] = React.useState<any[]>([])
     const [readyCompanies, setReadyCompanies] = React.useState<ReadyCompany[]>([])
     const [isLoading, setIsLoading] = React.useState(true)
@@ -116,20 +119,20 @@ export default function CompaniesPage() {
 
     const processFile = async (file: File) => {
         if (file.type !== "text/csv" && !file.name.endsWith(".csv")) {
-            toast.error("Please upload a CSV file")
+            toast.error(t('pleaseUploadCsv'))
             return
         }
 
         const formData = new FormData()
         formData.append("file", file)
 
-        const loadingToast = toast.loading("Uploading companies...")
+        const loadingToast = toast.loading(t('uploadingCompanies'))
 
         try {
             const token = localStorage.getItem("token")
             if (!token) {
                 router.push("/")
-                toast.error("Please login first")
+                toast.error(t('loginFirst'))
                 return
             }
 
@@ -144,13 +147,13 @@ export default function CompaniesPage() {
             if (response.status === 401) {
                 localStorage.removeItem("token")
                 router.push("/")
-                toast.error("Session expired, please login again")
+                toast.error(t('sessionExpired'))
                 return
             }
 
             if (!response.ok) {
                 const errorData = await response.json()
-                throw new Error(errorData.detail || "Upload failed")
+                throw new Error(errorData.detail || t('error'))
             }
 
             const data = await response.json()
@@ -170,8 +173,8 @@ export default function CompaniesPage() {
 
         } catch (error) {
             console.error("Upload error:", error)
-            toast.error("Import Failed", {
-                description: error instanceof Error ? error.message : "Failed to upload file",
+            toast.error(t('importFailed'), {
+                description: error instanceof Error ? error.message : t('error'),
                 duration: 5000,
             })
         } finally {
@@ -264,13 +267,13 @@ export default function CompaniesPage() {
     }, [companies, sortConfig, filters])
 
     const handleEnrich = async () => {
-        const loadingToast = toast.loading("Enriching data...")
+        const loadingToast = toast.loading(t('enrichingData'))
 
         try {
             const token = localStorage.getItem("token")
             if (!token) {
                 router.push("/")
-                toast.error("Please login first")
+                toast.error(t('loginFirst'))
                 return
             }
 
@@ -291,25 +294,25 @@ export default function CompaniesPage() {
             if (response.status === 401) {
                 localStorage.removeItem("token")
                 router.push("/")
-                toast.error("Session expired, please login again")
+                toast.error(t('sessionExpired'))
                 return
             }
 
             if (!response.ok) {
                 const errorData = await response.json()
-                throw new Error(errorData.detail || "Enrichment failed")
+                throw new Error(errorData.detail || t('enrichmentFailed'))
             }
 
-            toast.success("Data enriched", {
-                description: `Saved random numbers for ${companies.length} companies to database.`
+            toast.success(t('dataEnriched'), {
+                description: `${t('savedToDatabase')} (${companies.length})`
             })
 
             fetchCompanies()
 
         } catch (error) {
             console.error("Enrichment error:", error)
-            toast.error("Enrichment Failed", {
-                description: error instanceof Error ? error.message : "Failed to persist enriched data",
+            toast.error(t('enrichmentFailed'), {
+                description: error instanceof Error ? error.message : t('error'),
             })
         } finally {
             toast.dismiss(loadingToast)
@@ -320,12 +323,12 @@ export default function CompaniesPage() {
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
             <div className="px-4 lg:px-6 flex items-center justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight">Companies</h2>
-                    <p className="text-sm text-muted-foreground">Manage and track all your active and archived companies in one central place.</p>
+                    <h2 className="text-2xl font-bold tracking-tight">{t('companies')}</h2>
+                    <p className="text-sm text-muted-foreground">{t('companiesDescription')}</p>
                 </div>
                 <div className="flex items-center gap-4">
                     <span className="text-sm font-medium text-muted-foreground mr-2">
-                        Total: {filteredAndSortedCompanies.length} Active / {readyCompanies.length} Ready
+                        {t('total')}: {filteredAndSortedCompanies.length} {t('active')} / {readyCompanies.length} {t('ready')}
                     </span>
                     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                         <DialogTrigger asChild>
@@ -333,14 +336,14 @@ export default function CompaniesPage() {
                                 className="gap-2 bg-[#020817] text-white hover:bg-[#020817]/90 dark:bg-primary dark:text-primary-foreground"
                             >
                                 <Upload className="h-4 w-4 text-white" />
-                                <span className="text-white">Import CSV</span>
+                                <span className="text-white">{t('importCsv')}</span>
                             </Button>
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-[425px]">
                             <DialogHeader>
-                                <DialogTitle>Import Companies</DialogTitle>
+                                <DialogTitle>{t('importCompanies')}</DialogTitle>
                                 <DialogDescription>
-                                    Drag and drop your CSV file here or click to browse.
+                                    {t('orDragAndDrop')}
                                 </DialogDescription>
                             </DialogHeader>
                             <div
@@ -367,9 +370,9 @@ export default function CompaniesPage() {
                                         <FileUp className="h-6 w-6 text-muted-foreground" />
                                     </div>
                                     <p>
-                                        <span className="font-semibold text-foreground">Click to upload</span> or drag and drop
+                                        <span className="font-semibold text-foreground">{t('clickToUpload')}</span> {t('orDragAndDrop')}
                                     </p>
-                                    <p className="text-xs">CSV file (max. 10MB)</p>
+                                    <p className="text-xs">{t('csvLimit')}</p>
                                 </div>
                             </div>
                         </DialogContent>
@@ -379,8 +382,8 @@ export default function CompaniesPage() {
             <div className="px-4 lg:px-6">
                 <Tabs defaultValue="all" className="w-full">
                     <TabsList className="mb-4">
-                        <TabsTrigger value="all">All Companies</TabsTrigger>
-                        <TabsTrigger value="ready">Ready Companies</TabsTrigger>
+                        <TabsTrigger value="all">{t('allCompanies')}</TabsTrigger>
+                        <TabsTrigger value="ready">{t('readyCompanies')}</TabsTrigger>
                     </TabsList>
                     <TabsContent value="all">
                         <CompaniesTable
@@ -407,17 +410,17 @@ export default function CompaniesPage() {
             <Dialog open={isSuccessDialogOpen} onOpenChange={setIsSuccessDialogOpen}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle className="text-xl font-bold">Import Status</DialogTitle>
+                        <DialogTitle className="text-xl font-bold">{t('importStatus')}</DialogTitle>
                     </DialogHeader>
                     <div className="flex flex-col items-center justify-center space-y-4 py-6">
                         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/20">
                             <Upload className="h-6 w-6 text-green-600 dark:text-green-400" />
                         </div>
                         <p className="text-center text-lg font-medium text-foreground">
-                            Imported {importResult?.inserted} out of {importResult?.total}
+                            {t('imported')} {importResult?.inserted} {t('outOf')} {importResult?.total}
                         </p>
                         <p className="text-center text-sm text-muted-foreground">
-                            Duplicates were automatically skipped.
+                            {t('duplicatesSkipped')}
                         </p>
                     </div>
                     <div className="flex justify-center">
@@ -425,7 +428,7 @@ export default function CompaniesPage() {
                             className="px-8"
                             onClick={() => setIsSuccessDialogOpen(false)}
                         >
-                            OK
+                            {t('confirm')}
                         </Button>
                     </div>
                 </DialogContent>

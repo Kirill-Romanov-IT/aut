@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
+import { useLanguage } from "@/components/language-provider"
 
 import { ReadyCompanyDialog } from "./ready-company-dialog"
 
@@ -46,6 +47,7 @@ export function ReadyCompaniesTable({
     onUpdate
 }: ReadyCompaniesTableProps) {
     const router = useRouter()
+    const { t } = useLanguage()
     const [selectedIds, setSelectedIds] = React.useState<Set<number | string>>(new Set())
     const [sortConfig, setSortConfig] = React.useState<{ key: string, direction: 'asc' | 'desc' | null }>({ key: '', direction: null })
     const [filters, setFilters] = React.useState({ company_name: '', location: '', name: '', sur_name: '', phone_number: '' })
@@ -72,12 +74,11 @@ export function ReadyCompaniesTable({
                 setSelectedDetailCompany(updated)
             }
         }
-    }, [companies, selectedDetailCompany]) // Added selectedDetailCompany to dependencies to prevent stale closure issues
+    }, [companies, selectedDetailCompany])
 
     const filteredAndSorted = React.useMemo(() => {
         let result = [...companies]
 
-        // Filtering
         Object.keys(filters).forEach((key) => {
             const filterValue = filters[key as keyof typeof filters]
             if (filterValue) {
@@ -88,7 +89,6 @@ export function ReadyCompaniesTable({
             }
         })
 
-        // Sorting
         if (sortConfig.key && sortConfig.direction) {
             result.sort((a, b) => {
                 const aValue = a[sortConfig.key as keyof ReadyCompany] || ''
@@ -106,33 +106,32 @@ export function ReadyCompaniesTable({
     const handleBulkMoveToKanban = async () => {
         if (selectedIds.size === 0) return
 
-        // 1. Client-side validation: match companies by ID (handling string/number mismatches)
         const selectedCompanies = companies.filter(c =>
             Array.from(selectedIds).some(id => String(id) === String(c.id))
         )
 
         if (selectedCompanies.length === 0) {
-            toast.error("No companies found to move. Please try selecting them again.")
+            toast.error(t('error'))
             return
         }
 
         for (const company of selectedCompanies) {
             const missingFields: string[] = []
-            if (!company.company_name?.trim()) missingFields.push("Company Name")
-            if (!company.location?.trim()) missingFields.push("Location")
-            if (!company.name?.trim()) missingFields.push("Contact Name")
-            if (!company.sur_name?.trim()) missingFields.push("Surname")
-            if (!company.phone_number?.trim()) missingFields.push("Phone Number")
+            if (!company.company_name?.trim()) missingFields.push(t('companyName'))
+            if (!company.location?.trim()) missingFields.push(t('location'))
+            if (!company.name?.trim()) missingFields.push(t('contactName'))
+            if (!company.sur_name?.trim()) missingFields.push(t('surname'))
+            if (!company.phone_number?.trim()) missingFields.push(t('phone'))
 
             if (missingFields.length > 0) {
-                toast.error(`I cannot transfer "${company.company_name || 'this company'}" because the following is not filled: ${missingFields.join(", ")}. Please fill them.`, {
+                toast.error(`${t('error')}: ${missingFields.join(", ")}`, {
                     duration: 5000,
                 })
                 return
             }
         }
 
-        const loadingToast = toast.loading(`Moving ${selectedIds.size} companies to Kanban...`)
+        const loadingToast = toast.loading(t('loading'))
         try {
             const token = localStorage.getItem("token")
             if (!token) {
@@ -140,7 +139,6 @@ export function ReadyCompaniesTable({
                 return
             }
 
-            // Convert to numbers for the backend
             const idArray = Array.from(selectedIds).map(id => Number(id)).filter(id => !isNaN(id))
 
             const response = await fetch("http://localhost:8000/ready-companies/bulk-move-to-kanban", {
@@ -155,7 +153,6 @@ export function ReadyCompaniesTable({
             const data = await response.json()
 
             if (response.ok) {
-                // Sync with Kanban localStorage
                 const kanbanData = localStorage.getItem("lifecycle-kanban-state")
                 const currentKanban = kanbanData ? JSON.parse(kanbanData) : []
 
@@ -173,26 +170,24 @@ export function ReadyCompaniesTable({
 
                 localStorage.setItem("lifecycle-kanban-state", JSON.stringify([...currentKanban, ...newKanbanCompanies]))
 
-                toast.success(`Successfully moved ${data.length} companies to Kanban`)
+                toast.success(t('success'))
                 setSelectedIds(new Set())
                 onUpdate()
             } else {
-                toast.error(data.detail || "Failed to move companies")
+                toast.error(data.detail || t('error'))
             }
         } catch (error) {
             console.error("Bulk move error:", error)
-            toast.error("An error occurred during transfer")
+            toast.error(t('error'))
         } finally {
             toast.dismiss(loadingToast)
         }
     }
 
-
-
     const handleSelectAll = () => {
         const allIds = filteredAndSorted.map(c => c.id)
         setSelectedIds(new Set(allIds))
-        toast.info(`Selected all ${allIds.length} filtered companies`)
+        toast.info(t('success'))
     }
 
     const handleDeselectAll = () => {
@@ -202,7 +197,7 @@ export function ReadyCompaniesTable({
     const handleBulkDelete = async () => {
         if (selectedIds.size === 0) return
 
-        const confirmDelete = window.confirm(`Are you sure you want to delete ${selectedIds.size} ready companies?`)
+        const confirmDelete = window.confirm(t('confirmDelete'))
         if (!confirmDelete) return
 
         try {
@@ -222,15 +217,15 @@ export function ReadyCompaniesTable({
             })
 
             if (response.ok) {
-                toast.success(`Successfully deleted ${selectedIds.size} companies`)
+                toast.success(t('success'))
                 setSelectedIds(new Set())
                 onUpdate()
             } else {
-                toast.error("Failed to delete companies")
+                toast.error(t('error'))
             }
         } catch (error) {
             console.error("Bulk delete error:", error)
-            toast.error("An error occurred")
+            toast.error(t('error'))
         }
     }
 
@@ -246,7 +241,7 @@ export function ReadyCompaniesTable({
                                         className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
                                         onClick={() => handleSort('company_name')}
                                     >
-                                        Company Name
+                                        {t('companyName')}
                                         {sortConfig.key === 'company_name' ? (
                                             sortConfig.direction === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
                                         ) : <ArrowUpDown className="h-3 w-3 opacity-50" />}
@@ -254,7 +249,7 @@ export function ReadyCompaniesTable({
                                     <div className="relative">
                                         <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                                         <Input
-                                            placeholder="Filter..."
+                                            placeholder={t('filterPlaceholder')}
                                             value={filters.company_name}
                                             onChange={(e) => handleFilterChange('company_name', e.target.value)}
                                             className="h-8 pl-8 text-xs bg-muted/50 border-none focus-visible:ring-1"
@@ -265,9 +260,9 @@ export function ReadyCompaniesTable({
                             </TableHead>
                             <TableHead className="font-semibold text-foreground py-4">
                                 <div className="flex flex-col gap-2">
-                                    <div className="flex items-center gap-2">Location</div>
+                                    <div className="flex items-center gap-2">{t('location')}</div>
                                     <Input
-                                        placeholder="Filter..."
+                                        placeholder={t('filterPlaceholder')}
                                         value={filters.location}
                                         onChange={(e) => handleFilterChange('location', e.target.value)}
                                         className="h-8 text-xs bg-muted/50 border-none focus-visible:ring-1"
@@ -277,9 +272,9 @@ export function ReadyCompaniesTable({
                             </TableHead>
                             <TableHead className="font-semibold text-foreground py-4">
                                 <div className="flex flex-col gap-2">
-                                    <div className="flex items-center gap-2">Contact Name</div>
+                                    <div className="flex items-center gap-2">{t('contactName')}</div>
                                     <Input
-                                        placeholder="Filter..."
+                                        placeholder={t('filterPlaceholder')}
                                         value={filters.name}
                                         onChange={(e) => handleFilterChange('name', e.target.value)}
                                         className="h-8 text-xs bg-muted/50 border-none focus-visible:ring-1"
@@ -289,9 +284,9 @@ export function ReadyCompaniesTable({
                             </TableHead>
                             <TableHead className="font-semibold text-foreground py-4">
                                 <div className="flex flex-col gap-2">
-                                    <div className="flex items-center gap-2">Surname</div>
+                                    <div className="flex items-center gap-2">{t('surname')}</div>
                                     <Input
-                                        placeholder="Filter..."
+                                        placeholder={t('filterPlaceholder')}
                                         value={filters.sur_name}
                                         onChange={(e) => handleFilterChange('sur_name', e.target.value)}
                                         className="h-8 text-xs bg-muted/50 border-none focus-visible:ring-1"
@@ -301,9 +296,9 @@ export function ReadyCompaniesTable({
                             </TableHead>
                             <TableHead className="font-semibold text-foreground py-4">
                                 <div className="flex flex-col gap-2">
-                                    <div className="flex items-center gap-2">Phone</div>
+                                    <div className="flex items-center gap-2">{t('phone')}</div>
                                     <Input
-                                        placeholder="Filter..."
+                                        placeholder={t('filterPlaceholder')}
                                         value={filters.phone_number}
                                         onChange={(e) => handleFilterChange('phone_number', e.target.value)}
                                         className="h-8 text-xs bg-muted/50 border-none focus-visible:ring-1"
@@ -327,7 +322,7 @@ export function ReadyCompaniesTable({
                                                     handleSelectAll()
                                                 }}
                                             >
-                                                Select All Filtered ({filteredAndSorted.length})
+                                                {t('selectAll')} ({filteredAndSorted.length})
                                             </DropdownMenuItem>
                                             <DropdownMenuItem
                                                 className="cursor-pointer"
@@ -337,14 +332,14 @@ export function ReadyCompaniesTable({
                                                 }}
                                                 disabled={selectedIds.size === 0}
                                             >
-                                                Deselect All
+                                                {t('deselectAll')}
                                             </DropdownMenuItem>
 
                                             {selectedIds.size > 0 && (
                                                 <>
                                                     <div className="h-px bg-muted my-1" />
                                                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                                        Bulk Actions ({selectedIds.size})
+                                                        {t('bulkActions')} ({selectedIds.size})
                                                     </div>
                                                     <DropdownMenuItem
                                                         onClick={(e) => {
@@ -352,7 +347,7 @@ export function ReadyCompaniesTable({
                                                             handleBulkMoveToKanban()
                                                         }}
                                                     >
-                                                        Add to Kanban
+                                                        {t('moveToKanban')}
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem
                                                         className="text-destructive focus:text-destructive cursor-pointer"
@@ -362,7 +357,7 @@ export function ReadyCompaniesTable({
                                                         }}
                                                     >
                                                         <Trash2 className="mr-2 h-4 w-4" />
-                                                        <span>Delete Selected</span>
+                                                        <span>{t('deleteSelected')}</span>
                                                     </DropdownMenuItem>
                                                 </>
                                             )}
@@ -375,11 +370,11 @@ export function ReadyCompaniesTable({
                     <TableBody>
                         {isLoading ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="h-24 text-center">Loading...</TableCell>
+                                <TableCell colSpan={6} className="h-24 text-center">{t('loading')}</TableCell>
                             </TableRow>
                         ) : filteredAndSorted.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="h-24 text-center">No ready companies found.</TableCell>
+                                <TableCell colSpan={6} className="h-24 text-center">{t('noData')}</TableCell>
                             </TableRow>
                         ) : (
                             filteredAndSorted.map((company) => (
@@ -389,10 +384,10 @@ export function ReadyCompaniesTable({
                                     onClick={() => setSelectedDetailCompany(company)}
                                 >
                                     <TableCell className="font-medium">{company.company_name}</TableCell>
-                                    <TableCell>{company.location || "-"}</TableCell>
-                                    <TableCell>{company.name || '-'}</TableCell>
-                                    <TableCell>{company.sur_name || '-'}</TableCell>
-                                    <TableCell>{company.phone_number || '-'}</TableCell>
+                                    <TableCell>{company.location || t('notAvailable')}</TableCell>
+                                    <TableCell>{company.name || t('notAvailable')}</TableCell>
+                                    <TableCell>{company.sur_name || t('notAvailable')}</TableCell>
+                                    <TableCell>{company.phone_number || t('notAvailable')}</TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex items-center justify-end">
                                             <Checkbox

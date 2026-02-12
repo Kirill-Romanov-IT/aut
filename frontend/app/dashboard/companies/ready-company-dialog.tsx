@@ -14,6 +14,7 @@ import { MapPinIcon, UserIcon, PhoneIcon, PencilIcon, CheckIcon, XIcon, Building
 import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
 import { useRouter } from "next/navigation"
+import { useLanguage } from "@/components/language-provider"
 
 export type ReadyCompany = {
     id: number | string
@@ -39,6 +40,7 @@ export function ReadyCompanyDialog({
     onUpdate,
 }: ReadyCompanyDialogProps) {
     const router = useRouter()
+    const { t } = useLanguage()
     const [editingField, setEditingField] = React.useState<string | null>(null)
     const [localCompany, setLocalCompany] = React.useState<ReadyCompany | null>(company)
     const [tempValues, setTempValues] = React.useState<Partial<ReadyCompany>>({})
@@ -85,17 +87,17 @@ export function ReadyCompanyDialog({
 
             if (response.ok) {
                 const updated = await response.json()
-                toast.success("Company updated successfully")
+                toast.success(t('success'))
                 setEditingField(null)
                 setLocalCompany(updated)
                 onUpdate()
             } else {
                 const errorData = await response.json()
-                toast.error(errorData.detail || "Failed to update company")
+                toast.error(errorData.detail || t('error'))
             }
         } catch (error) {
             console.error("Update error:", error)
-            toast.error("An error occurred during update")
+            toast.error(t('error'))
         } finally {
             setIsSaving(false)
         }
@@ -105,10 +107,10 @@ export function ReadyCompanyDialog({
         label: string,
         field: keyof ReadyCompany,
         icon: React.ReactNode,
-        placeholder: string = "Enter value..."
+        placeholder: string = t('filterPlaceholder')
     ) => {
         const isEditing = editingField === field
-        const value = isEditing ? (tempValues[field] as string || "") : (localCompany[field] as string || "-")
+        const value = isEditing ? (tempValues[field] as string || "") : (localCompany[field] as string || t('notAvailable'))
 
         return (
             <div className="space-y-2">
@@ -133,7 +135,7 @@ export function ReadyCompanyDialog({
                                     onClick={handleSave}
                                     disabled={isSaving}
                                     className="p-1 hover:bg-green-100 text-green-600 rounded-md transition-colors disabled:opacity-50"
-                                    title="Save"
+                                    title={t('save')}
                                 >
                                     <CheckIcon className="h-4 w-4" />
                                 </button>
@@ -141,7 +143,7 @@ export function ReadyCompanyDialog({
                                     onClick={handleCancelEdit}
                                     disabled={isSaving}
                                     className="p-1 hover:bg-red-100 text-red-600 rounded-md transition-colors disabled:opacity-50"
-                                    title="Cancel"
+                                    title={t('cancel')}
                                 >
                                     <XIcon className="h-4 w-4" />
                                 </button>
@@ -155,7 +157,7 @@ export function ReadyCompanyDialog({
                             <button
                                 onClick={() => handleStartEdit(field as string, localCompany[field] as string || "")}
                                 className="p-1.5 opacity-0 group-hover/field:opacity-100 hover:bg-primary/10 text-primary/60 hover:text-primary rounded-md transition-all active:scale-90"
-                                title={`Edit ${label}`}
+                                title={`${t('edit')} ${label}`}
                             >
                                 <PencilIcon className="h-4 w-4" />
                             </button>
@@ -181,11 +183,11 @@ export function ReadyCompanyDialog({
                                 {localCompany.company_name}
                             </DialogTitle>
                             <DialogDescription className="sr-only">
-                                Detailed information about {localCompany.company_name}
+                                {t('companyDetails')}: {localCompany.company_name}
                             </DialogDescription>
                             <div className="flex items-center justify-center gap-2">
                                 <Badge variant="secondary" className="px-3 py-1 rounded-full text-[10px] font-medium uppercase tracking-wider">
-                                    Ready Company
+                                    {t('readyCompanies')}
                                 </Badge>
                             </div>
                         </div>
@@ -194,11 +196,11 @@ export function ReadyCompanyDialog({
 
                 <div className="p-8 space-y-6">
                     <div className="grid gap-4">
-                        {renderEditableField("Company Name", "company_name", <Building2Icon className="h-4 w-4" />, "Company name")}
-                        {renderEditableField("Location", "location", <MapPinIcon className="h-4 w-4" />, "City, Country")}
-                        {renderEditableField("Contact Name", "name", <UserIcon className="h-4 w-4" />, "First name")}
-                        {renderEditableField("Surname", "sur_name", <UserIcon className="h-4 w-4" />, "Last name")}
-                        {renderEditableField("Phone Number", "phone_number", <PhoneIcon className="h-4 w-4" />, "+1 234 567 890")}
+                        {renderEditableField(t('companyName'), "company_name", <Building2Icon className="h-4 w-4" />, t('companyName'))}
+                        {renderEditableField(t('location'), "location", <MapPinIcon className="h-4 w-4" />, t('location'))}
+                        {renderEditableField(t('contactName'), "name", <UserIcon className="h-4 w-4" />, t('contactName'))}
+                        {renderEditableField(t('surname'), "sur_name", <UserIcon className="h-4 w-4" />, t('surname'))}
+                        {renderEditableField(t('phone'), "phone_number", <PhoneIcon className="h-4 w-4" />, t('phone'))}
                     </div>
 
                     <div className="flex flex-col gap-2">
@@ -206,7 +208,7 @@ export function ReadyCompanyDialog({
                             <button
                                 className="w-full py-3 px-4 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity active:scale-[0.98]"
                             >
-                                Close
+                                {t('close')}
                             </button>
                         </DialogClose>
                     </div>

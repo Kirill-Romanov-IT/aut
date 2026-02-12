@@ -1,5 +1,9 @@
+"use client"
+
+import { useLanguage } from "@/components/language-provider"
 import GenericPage from "../generic-page"
 
 export default function WordAssistantPage() {
-    return <GenericPage title="Word Assistant" description="AI-powered assistant for your documents." />
+    const { t } = useLanguage()
+    return <GenericPage title={t('wordAssistantTitle')} description={t('wordAssistantDescription')} />
 }

@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
+import { useLanguage } from "@/components/language-provider"
 
 const initialCompanies: Company[] = [
     {
@@ -70,9 +71,12 @@ export function CompaniesTable({
     onFilterChange
 }: CompaniesTableProps) {
     const router = useRouter()
+    const { t, language } = useLanguage()
     const [selectedCompany, setSelectedCompany] = React.useState<Company | null>(null)
     const [isSheetOpen, setIsSheetOpen] = React.useState(false)
     const [selectedIds, setSelectedIds] = React.useState<Set<number | string>>(new Set())
+
+    const locale = language === 'ru' ? 'ru-RU' : 'en-US'
 
     const handleRowClick = (company: Company) => {
         setSelectedCompany(company)
@@ -82,9 +86,9 @@ export function CompaniesTable({
     const handleAddCompany = () => {
         const newCompany: Company = {
             id: "",
-            name: "New Company",
+            name: t('new'),
             employees: 0,
-            location: "Unknown",
+            location: t('loading'),
             createdAt: new Date().toISOString().split('T')[0],
         }
         setSelectedCompany(newCompany)
@@ -92,7 +96,7 @@ export function CompaniesTable({
     }
 
     const handleSave = async (updatedCompany: Company) => {
-        const loadingToast = toast.loading("Updating company...")
+        const loadingToast = toast.loading(t('loading'))
         try {
             const token = localStorage.getItem("token")
             if (!token) {
@@ -117,25 +121,25 @@ export function CompaniesTable({
             })
 
             if (response.ok) {
-                toast.success("Company updated successfully")
+                toast.success(t('success'))
                 onUpdate()
             } else {
                 const errorData = await response.json()
-                toast.error(errorData.detail || "Failed to update company")
+                toast.error(errorData.detail || t('error'))
             }
         } catch (error) {
             console.error("Update error:", error)
-            toast.error("An error occurred during update")
+            toast.error(t('error'))
         } finally {
             toast.dismiss(loadingToast)
         }
     }
 
     const handleDelete = async (id: string | number) => {
-        const confirmDelete = window.confirm("Are you sure you want to delete this company?")
+        const confirmDelete = window.confirm(t('confirmDelete'))
         if (!confirmDelete) return
 
-        const loadingToast = toast.loading("Deleting company...")
+        const loadingToast = toast.loading(t('loading'))
         try {
             const token = localStorage.getItem("token")
             if (!token) {
@@ -153,7 +157,7 @@ export function CompaniesTable({
             })
 
             if (response.ok) {
-                toast.success("Company deleted")
+                toast.success(t('success'))
                 setSelectedIds(prev => {
                     const next = new Set(prev)
                     next.delete(id)
@@ -161,11 +165,11 @@ export function CompaniesTable({
                 })
                 onUpdate()
             } else {
-                toast.error("Failed to delete company")
+                toast.error(t('error'))
             }
         } catch (error) {
             console.error("Error deleting company:", error)
-            toast.error("An error occurred")
+            toast.error(t('error'))
         } finally {
             toast.dismiss(loadingToast)
         }
@@ -174,7 +178,7 @@ export function CompaniesTable({
     const handleBulkDelete = async () => {
         if (selectedIds.size === 0) return
 
-        const confirmDelete = window.confirm(`Are you sure you want to delete ${selectedIds.size} companies?`)
+        const confirmDelete = window.confirm(t('confirmDelete'))
         if (!confirmDelete) return
 
         try {
@@ -194,23 +198,23 @@ export function CompaniesTable({
             })
 
             if (response.ok) {
-                toast.success(`Successfully deleted ${selectedIds.size} companies`)
+                toast.success(t('success'))
                 setSelectedIds(new Set())
                 onUpdate() // Refresh parent state
             } else {
                 const data = await response.json()
-                toast.error(data.detail || "Failed to delete companies")
+                toast.error(data.detail || t('error'))
             }
         } catch (error) {
             console.error("Bulk delete error:", error)
-            toast.error("An error occurred while deleting companies")
+            toast.error(t('error'))
         }
     }
 
     const handleBulkReady = async () => {
         if (selectedIds.size === 0) return
 
-        const loadingToast = toast.loading("Moving to Ready...")
+        const loadingToast = toast.loading(t('loading'))
         try {
             const token = localStorage.getItem("token")
             if (!token) {
@@ -228,16 +232,16 @@ export function CompaniesTable({
             })
 
             if (response.ok) {
-                toast.success(`Successfully moved ${selectedIds.size} companies to Ready`)
+                toast.success(t('success'))
                 setSelectedIds(new Set())
                 onUpdate() // Refresh parent state
             } else {
                 const data = await response.json()
-                toast.error(data.detail || "Failed to move companies")
+                toast.error(data.detail || t('error'))
             }
         } catch (error) {
             console.error("Bulk ready error:", error)
-            toast.error("An error occurred")
+            toast.error(t('error'))
         } finally {
             toast.dismiss(loadingToast)
         }
@@ -246,7 +250,7 @@ export function CompaniesTable({
     const handleSelectAll = () => {
         const allIds = companies.map(c => c.id)
         setSelectedIds(new Set(allIds))
-        toast.info(`Selected all ${allIds.length} visible companies`)
+        toast.info(t('success'))
     }
 
     const handleDeselectAll = () => {
@@ -265,7 +269,7 @@ export function CompaniesTable({
                                         className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
                                         onClick={() => onSort('name')}
                                     >
-                                        Name
+                                        {t('companyName')}
                                         {sortConfig.key === 'name' ? (
                                             sortConfig.direction === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
                                         ) : <ArrowUpDown className="h-3 w-3 opacity-50" />}
@@ -273,7 +277,7 @@ export function CompaniesTable({
                                     <div className="relative">
                                         <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                                         <Input
-                                            placeholder="Filter..."
+                                            placeholder={t('filterPlaceholder')}
                                             value={filters.name}
                                             onChange={(e: React.ChangeEvent<HTMLInputElement>) => onFilterChange('name', e.target.value)}
                                             className="h-8 pl-8 text-xs bg-muted/50 border-none focus-visible:ring-1"
@@ -288,13 +292,13 @@ export function CompaniesTable({
                                         className="flex items-center gap-2 cursor-pointer hover:text-primary transition-colors"
                                         onClick={() => onSort('employees')}
                                     >
-                                        Employees
+                                        {t('employees')}
                                         {sortConfig.key === 'employees' ? (
                                             sortConfig.direction === 'asc' ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
                                         ) : <ArrowUpDown className="h-3 w-3 opacity-50" />}
                                     </div>
                                     <Input
-                                        placeholder="e.g. >200"
+                                        placeholder={t('employeesFilterPlaceholder')}
                                         value={filters.employees}
                                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => onFilterChange('employees', e.target.value)}
                                         className="h-8 text-xs bg-muted/50 border-none focus-visible:ring-1"
@@ -305,10 +309,10 @@ export function CompaniesTable({
                             <TableHead className="font-semibold text-foreground py-4">
                                 <div className="flex flex-col gap-2">
                                     <div className="flex items-center gap-2">
-                                        Location
+                                        {t('location')}
                                     </div>
                                     <Input
-                                        placeholder="Filter..."
+                                        placeholder={t('filterPlaceholder')}
                                         value={filters.location}
                                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => onFilterChange('location', e.target.value)}
                                         className="h-8 text-xs bg-muted/50 border-none focus-visible:ring-1"
@@ -316,7 +320,7 @@ export function CompaniesTable({
                                     />
                                 </div>
                             </TableHead>
-                            <TableHead className="font-semibold text-foreground">Created At</TableHead>
+                            <TableHead className="font-semibold text-foreground">{t('createdAt')}</TableHead>
                             <TableHead className="text-right w-[60px]">
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -332,7 +336,7 @@ export function CompaniesTable({
                                                 handleSelectAll()
                                             }}
                                         >
-                                            Select All Visible ({companies.length})
+                                            {t('selectAll')} ({companies.length})
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
                                             className="cursor-pointer"
@@ -342,14 +346,14 @@ export function CompaniesTable({
                                             }}
                                             disabled={selectedIds.size === 0}
                                         >
-                                            Deselect All
+                                            {t('deselectAll')}
                                         </DropdownMenuItem>
 
                                         {selectedIds.size > 0 && (
                                             <>
                                                 <div className="h-px bg-muted my-1" />
                                                 <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                                                    Bulk Actions ({selectedIds.size})
+                                                    {t('bulkActions')} ({selectedIds.size})
                                                 </div>
                                                 <DropdownMenuItem
                                                     className="cursor-pointer"
@@ -358,7 +362,7 @@ export function CompaniesTable({
                                                         onEnrich()
                                                     }}
                                                 >
-                                                    Enrich Data
+                                                    {t('enrichData')}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem
                                                     className="cursor-pointer"
@@ -367,7 +371,7 @@ export function CompaniesTable({
                                                         handleBulkReady()
                                                     }}
                                                 >
-                                                    Move to Ready
+                                                    {t('moveToReady')}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem
                                                     className="text-destructive focus:text-destructive cursor-pointer"
@@ -377,7 +381,7 @@ export function CompaniesTable({
                                                     }}
                                                 >
                                                     <Trash2 className="mr-2 h-4 w-4" />
-                                                    <span>Delete Selected</span>
+                                                    <span>{t('deleteSelected')}</span>
                                                 </DropdownMenuItem>
                                             </>
                                         )}
@@ -390,13 +394,13 @@ export function CompaniesTable({
                         {isLoading ? (
                             <TableRow>
                                 <TableCell colSpan={5} className="h-24 text-center">
-                                    Loading...
+                                    {t('loading')}
                                 </TableCell>
                             </TableRow>
                         ) : companies.length === 0 ? (
                             <TableRow>
                                 <TableCell colSpan={5} className="h-24 text-center">
-                                    No companies found.
+                                    {t('noData')}
                                 </TableCell>
                             </TableRow>
                         ) : (
@@ -410,7 +414,7 @@ export function CompaniesTable({
                                     <TableCell>{company.employees}</TableCell>
                                     <TableCell>{company.location}</TableCell>
                                     <TableCell className="text-muted-foreground">
-                                        {company.created_at ? new Date(company.created_at).toLocaleDateString() : 'N/A'}
+                                        {company.created_at ? new Date(company.created_at).toLocaleDateString(locale) : (language === 'ru' ? 'Н/Д' : 'N/A')}
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <Checkbox

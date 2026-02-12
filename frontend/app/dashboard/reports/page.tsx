@@ -1,5 +1,9 @@
+"use client"
+
+import { useLanguage } from "@/components/language-provider"
 import GenericPage from "../generic-page"
 
 export default function ReportsPage() {
-    return <GenericPage title="Reports" description="Generate and view detailed system reports." />
+    const { t } = useLanguage()
+    return <GenericPage title={t('reportsTitle')} description={t('reportsDescription')} />
 }

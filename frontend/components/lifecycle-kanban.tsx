@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
+import { useLanguage } from "@/components/language-provider"
 
 // --- Types ---
 type CompanyStatus = "new" | "not-responding" | "ivr" | "hang-up" | "dm-found-call-time"
@@ -63,19 +64,11 @@ const KANBAN_STORAGE_KEY = "lifecycle-kanban-state"
 const QUEUE_STORAGE_KEY = "voice-ai-queue-state"
 
 // --- Helpers ---
-const formatCallDate = (isoString: string) => {
+const formatCallDate = (isoString: string, t: (key: any) => string) => {
     if (!isoString) return ""
     const date = new Date(isoString)
-    const months = [
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-    ]
-    const day = date.getDate()
-    const month = months[date.getMonth()]
-    const hour = date.getHours().toString().padStart(2, '0')
-    const minute = date.getMinutes().toString().padStart(2, '0')
-
-    return `${month} ${day} at ${hour}:${minute}`
+    // Simplified date formatting for now
+    return date.toLocaleString()
 }
 
 const generateRandomCallDate = () => {
@@ -102,6 +95,7 @@ const MOCK_COMPANIES: Company[] = [
 // --- Components ---
 
 function SortableCompanyCard({ company, onClick }: { company: Company, onClick: (c: Company) => void }) {
+    const { t } = useLanguage()
     const {
         attributes,
         listeners,
@@ -143,7 +137,7 @@ function SortableCompanyCard({ company, onClick }: { company: Company, onClick: 
                 <CardHeader className="p-4 pb-2">
                     <div className="flex justify-between items-start">
                         <CardTitle className="text-sm font-medium">{company.name}</CardTitle>
-                        <Badge variant="outline" className="text-[10px] whitespace-nowrap">{company.employees} emp.</Badge>
+                        <Badge variant="outline" className="text-[10px] whitespace-nowrap">{company.employees} {t('employees')}</Badge>
                     </div>
                     <CardDescription className="text-[10px] line-clamp-1">{company.location}</CardDescription>
                 </CardHeader>
@@ -193,12 +187,13 @@ function KanbanColumn({ column, companies, onCardClick }: { column: Column, comp
 }
 
 function DragOverlayCard({ company }: { company: Company }) {
+    const { t } = useLanguage()
     return (
         <Card className="cursor-grabbing shadow-lg w-[260px] opacity-90 ring-2 ring-primary">
             <CardHeader className="p-4 pb-2">
                 <div className="flex justify-between items-start">
                     <CardTitle className="text-sm font-medium">{company.name}</CardTitle>
-                    <Badge variant="outline" className="text-[10px] whitespace-nowrap">{company.employees} emp.</Badge>
+                    <Badge variant="outline" className="text-[10px] whitespace-nowrap">{company.employees} {t('employees')}</Badge>
                 </div>
                 <CardDescription className="text-[10px] line-clamp-1">{company.location}</CardDescription>
             </CardHeader>
@@ -219,6 +214,7 @@ function DragOverlayCard({ company }: { company: Company }) {
 }
 
 export function LifecycleKanban() {
+    const { t } = useLanguage()
     const [mounted, setMounted] = React.useState(false)
     const [companies, setCompanies] = React.useState<Company[]>(MOCK_COMPANIES)
     const [activeId, setActiveId] = React.useState<string | null>(null)
@@ -227,6 +223,14 @@ export function LifecycleKanban() {
     const [tempTime, setTempTime] = React.useState("")
     const [editingField, setEditingField] = React.useState<string | null>(null)
     const [tempValues, setTempValues] = React.useState<Partial<Company>>({})
+
+    const columns: Column[] = [
+        { id: "new", title: t('newCompanies') },
+        { id: "not-responding", title: t('noAnswer') },
+        { id: "ivr", title: t('ivr') },
+        { id: "hang-up", title: t('reachedButHangsUp') },
+        { id: "dm-found-call-time", title: t('decisionMakerFound') }
+    ]
 
     // Hydration fix & LocalStorage Load
     React.useEffect(() => {
@@ -267,7 +271,7 @@ export function LifecycleKanban() {
         localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(companies))
         // Dispatch event for Voice AI page to update
         window.dispatchEvent(new Event('storage'))
-        alert("Queue successfully generated for Voice AI!")
+        toast.success(t('success'))
     }
 
     const handleTimeSave = () => {
@@ -306,11 +310,13 @@ export function LifecycleKanban() {
         ))
         setSelectedCompany(prev => prev ? { ...prev, [field]: newValue } : null)
         setEditingField(null)
-        toast.success(`${field.replace(/([A-Z])/g, ' $1').trim()} updated`)
+        toast.success(t('success'))
     }
 
     const handleDelete = (id: string) => {
-        setCompanies(prev => prev.filter(c => c.id !== id))
+        if (window.confirm(t('confirmDelete'))) {
+            setCompanies(prev => prev.filter(c => c.id !== id))
+        }
     }
 
     const sensors = useSensors(
@@ -323,14 +329,6 @@ export function LifecycleKanban() {
             coordinateGetter: sortableKeyboardCoordinates,
         })
     )
-
-    const columns: Column[] = [
-        { id: "new", title: "New Companies" },
-        { id: "not-responding", title: "No Answer" },
-        { id: "ivr", title: "IVR" },
-        { id: "hang-up", title: "Reached but Hangs up" },
-        { id: "dm-found-call-time", title: "Decision Maker Found - Call at Time" }
-    ]
 
     const handleDragStart = (event: DragStartEvent) => {
         setActiveId(event.active.id as string)
@@ -402,8 +400,8 @@ export function LifecycleKanban() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold tracking-tight">Lifecycle Management</h2>
-                    <p className="text-sm text-muted-foreground">Manage your deals and sequence them for Voice AI</p>
+                    <h2 className="text-2xl font-bold tracking-tight">{t('lifecycle')}</h2>
+                    <p className="text-sm text-muted-foreground">{t('settingsDescription')}</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <Button
@@ -411,7 +409,7 @@ export function LifecycleKanban() {
                         className="rounded-xl shadow-lg shadow-primary/20 hover:scale-105 transition-all active:scale-95"
                     >
                         <ZapIcon className="h-4 w-4 mr-2 fill-current" />
-                        Generate Queue
+                        {t('generateQueue')}
                     </Button>
                 </div>
             </div>
@@ -459,7 +457,7 @@ export function LifecycleKanban() {
                                     }
                                 }}
                                 className="absolute left-4 top-4 p-2 rounded-full hover:bg-red-50 text-red-500 transition-all z-10 hover:scale-110 active:scale-95"
-                                title="Delete Company"
+                                title={t('delete')}
                             >
                                 <Trash2Icon className="h-4 w-4" />
                             </button>
@@ -476,11 +474,11 @@ export function LifecycleKanban() {
                                 </DialogDescription>
                                 <div className="flex items-center justify-center gap-2">
                                     <Badge variant="secondary" className="px-3 py-1 rounded-full text-[10px] font-medium uppercase tracking-wider">
-                                        {selectedCompany?.status === 'new' && "New Company"}
-                                        {selectedCompany?.status === 'not-responding' && "No Answer"}
-                                        {selectedCompany?.status === 'ivr' && "IVR"}
-                                        {selectedCompany?.status === 'hang-up' && "Hang Up"}
-                                        {selectedCompany?.status === 'dm-found-call-time' && "DM Found"}
+                                        {selectedCompany?.status === 'new' && t('new')}
+                                        {selectedCompany?.status === 'not-responding' && t('noAnswer')}
+                                        {selectedCompany?.status === 'ivr' && t('ivr')}
+                                        {selectedCompany?.status === 'hang-up' && t('reachedButHangsUp')}
+                                        {selectedCompany?.status === 'dm-found-call-time' && t('decisionMakerFound')}
                                     </Badge>
                                 </div>
                             </div>
@@ -489,13 +487,12 @@ export function LifecycleKanban() {
 
                     <div className="p-8 space-y-6">
                         <div className="grid gap-4">
-                            {/* Editable Fields */}
                             {[
-                                { label: "Company Name", field: "name", icon: <Building2Icon className="h-4 w-4" /> },
-                                { label: "Location", field: "location", icon: <MapPinIcon className="h-4 w-4" /> },
-                                { label: "Contact Name", field: "contactName", icon: <UserIcon className="h-4 w-4" /> },
-                                { label: "Surname", field: "contactSurname", icon: <UserIcon className="h-4 w-4" /> },
-                                { label: "Phone Number", field: "contactPhone", icon: <PhoneIcon className="h-4 w-4" /> },
+                                { label: t('companyName'), field: "name", icon: <Building2Icon className="h-4 w-4" /> },
+                                { label: t('location'), field: "location", icon: <MapPinIcon className="h-4 w-4" /> },
+                                { label: t('contactName'), field: "contactName", icon: <UserIcon className="h-4 w-4" /> },
+                                { label: t('surname'), field: "contactSurname", icon: <UserIcon className="h-4 w-4" /> },
+                                { label: t('phone'), field: "contactPhone", icon: <PhoneIcon className="h-4 w-4" /> },
                             ].map(({ label, field, icon }) => {
                                 const isEditing = editingField === field
                                 const value = isEditing ? (tempValues[field as keyof Company] as string) : (selectedCompany?.[field as keyof Company] as string || "-")
@@ -550,7 +547,7 @@ export function LifecycleKanban() {
 
                             <div className="space-y-2">
                                 <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
-                                    Scheduled for:
+                                    {t('scheduledFor')}
                                 </label>
                                 <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/10">
                                     <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
@@ -564,30 +561,32 @@ export function LifecycleKanban() {
                                                 onChange={(e) => setTempTime(e.target.value)}
                                                 className="bg-background border rounded-md px-2 py-1 text-xs font-semibold text-primary/80 focus:ring-1 focus:ring-primary w-full"
                                             />
-                                            <button
-                                                onClick={handleTimeSave}
-                                                className="p-1 hover:bg-green-100 text-green-600 rounded-md transition-colors"
-                                                title="Save"
-                                            >
-                                                <CheckIcon className="h-4 w-4" />
-                                            </button>
-                                            <button
-                                                onClick={() => setIsEditingTime(false)}
-                                                className="p-1 hover:bg-red-100 text-red-600 rounded-md transition-colors"
-                                                title="Cancel"
-                                            >
-                                                <XIcon className="h-4 w-4" />
-                                            </button>
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    onClick={handleTimeSave}
+                                                    className="p-1 hover:bg-green-100 text-green-600 rounded-md transition-colors"
+                                                    title={t('save')}
+                                                >
+                                                    <CheckIcon className="h-4 w-4" />
+                                                </button>
+                                                <button
+                                                    onClick={() => setIsEditingTime(false)}
+                                                    className="p-1 hover:bg-red-100 text-red-600 rounded-md transition-colors"
+                                                    title={t('cancel')}
+                                                >
+                                                    <XIcon className="h-4 w-4" />
+                                                </button>
+                                            </div>
                                         </div>
                                     ) : (
                                         <div className="flex items-center justify-between flex-1 group/field">
                                             <span className="text-sm font-semibold text-primary/80">
-                                                {selectedCompany && formatCallDate(selectedCompany.scheduledAt)}
+                                                {selectedCompany && formatCallDate(selectedCompany.scheduledAt, t)}
                                             </span>
                                             <button
                                                 onClick={startEditingTime}
                                                 className="p-1.5 opacity-0 group-hover/field:opacity-100 hover:bg-primary/10 text-primary/60 hover:text-primary rounded-md transition-all active:scale-90"
-                                                title="Edit Time"
+                                                title={t('edit')}
                                             >
                                                 <PencilIcon className="h-4 w-4" />
                                             </button>
@@ -602,7 +601,7 @@ export function LifecycleKanban() {
                                 <button
                                     className="w-full py-3 px-4 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity active:scale-[0.98]"
                                 >
-                                    Close
+                                    {t('close')}
                                 </button>
                             </DialogClose>
                         </div>

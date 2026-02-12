@@ -5,6 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CalendarIcon, ClockIcon, UserIcon, MapPinIcon, MicIcon, Trash2Icon } from "lucide-react"
+import { useLanguage } from "@/components/language-provider"
+import { toast } from "sonner"
 
 type CompanyStatus = "new" | "not-responding" | "ivr" | "hang-up" | "dm-found-call-time"
 
@@ -22,30 +24,22 @@ const QUEUE_STORAGE_KEY = "voice-ai-queue-state"
 const formatCallDate = (isoString: string) => {
     if (!isoString) return ""
     const date = new Date(isoString)
-    const months = [
-        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-    ]
-    const day = date.getDate()
-    const month = months[date.getMonth()]
-    const hour = date.getHours().toString().padStart(2, '0')
-    const minute = date.getMinutes().toString().padStart(2, '0')
-
-    return `${month} ${day} at ${hour}:${minute}`
+    return date.toLocaleString()
 }
 
-const getStatusBadge = (status: CompanyStatus) => {
+const getStatusBadge = (status: CompanyStatus, t: (key: any) => string) => {
     switch (status) {
-        case "new": return <Badge variant="outline" className="border-purple-200 bg-purple-50 text-purple-700">New</Badge>
-        case "not-responding": return <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">No Answer</Badge>
-        case "ivr": return <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">IVR</Badge>
-        case "hang-up": return <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Hang Up</Badge>
-        case "dm-found-call-time": return <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">DM Found</Badge>
+        case "new": return <Badge variant="outline" className="border-purple-200 bg-purple-50 text-purple-700">{t('new')}</Badge>
+        case "not-responding": return <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">{t('noAnswer')}</Badge>
+        case "ivr": return <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">{t('ivr')}</Badge>
+        case "hang-up": return <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">{t('reachedButHangsUp')}</Badge>
+        case "dm-found-call-time": return <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">{t('decisionMakerFound')}</Badge>
         default: return <Badge variant="outline">{status}</Badge>
     }
 }
 
 export function VoiceAIQueue() {
+    const { t } = useLanguage()
     const [mounted, setMounted] = React.useState(false)
     const [companies, setCompanies] = React.useState<Company[]>([])
 
@@ -69,10 +63,11 @@ export function VoiceAIQueue() {
 
         loadData()
         // Listen for storage changes in other tabs/components
-        window.addEventListener('storage', (e) => {
+        const handleStorageChange = (e: StorageEvent) => {
             if (e.key === QUEUE_STORAGE_KEY) loadData()
-        })
-        return () => window.removeEventListener('storage', loadData)
+        }
+        window.addEventListener('storage', handleStorageChange)
+        return () => window.removeEventListener('storage', handleStorageChange)
     }, [])
 
     const clearQueue = () => {
@@ -80,6 +75,7 @@ export function VoiceAIQueue() {
         setCompanies([])
         // Dispatch event for other tabs
         window.dispatchEvent(new Event('storage'))
+        toast.success(t('success'))
     }
 
     if (!mounted) return null
@@ -88,8 +84,8 @@ export function VoiceAIQueue() {
         <Card className="border-none shadow-none bg-transparent">
             <CardHeader className="px-0 pt-0 pb-6 flex flex-row items-center justify-between space-y-0">
                 <div>
-                    <CardTitle className="text-2xl font-bold tracking-tight">Voice AI Call Queue</CardTitle>
-                    <p className="text-sm text-muted-foreground">Upcoming calls at the top</p>
+                    <CardTitle className="text-2xl font-bold tracking-tight">{t('voiceAiQueueTitle')}</CardTitle>
+                    <p className="text-sm text-muted-foreground">{t('upcomingCalls')}</p>
                 </div>
                 <Button
                     variant="outline"
@@ -98,14 +94,14 @@ export function VoiceAIQueue() {
                     className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 transition-all active:scale-95"
                 >
                     <Trash2Icon className="h-4 w-4 mr-2" />
-                    Clear Queue
+                    {t('clearQueue')}
                 </Button>
             </CardHeader>
             <CardContent className="px-0">
                 <div className="space-y-4">
                     {companies.length === 0 ? (
                         <div className="text-center py-12 bg-muted/20 rounded-2xl border-2 border-dashed border-muted">
-                            <p className="text-muted-foreground">Queue is empty. Update data on the Lifecycle board.</p>
+                            <p className="text-muted-foreground">{t('queueEmpty')}</p>
                         </div>
                     ) : (
                         companies.map((company, index) => (
@@ -127,9 +123,9 @@ export function VoiceAIQueue() {
                                             </div>
                                             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                                 <UserIcon className="h-3 w-3" />
-                                                {company.employees} emp.
+                                                {company.employees} {t('employees')}
                                             </div>
-                                            {getStatusBadge(company.status)}
+                                            {getStatusBadge(company.status, t)}
                                         </div>
                                     </div>
                                 </div>
@@ -141,7 +137,7 @@ export function VoiceAIQueue() {
                                             <span>{formatCallDate(company.scheduledAt)}</span>
                                         </div>
                                         <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-medium mt-0.5">
-                                            Scheduled
+                                            {t('scheduledLabel')}
                                         </span>
                                     </div>
                                     <button className="h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-md">
