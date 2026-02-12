@@ -7,6 +7,7 @@ import {
     DialogHeader,
     DialogTitle,
     DialogDescription,
+    DialogClose,
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { MapPinIcon, UserIcon, PhoneIcon, PencilIcon, CheckIcon, XIcon, Building2Icon } from "lucide-react"
@@ -167,27 +168,29 @@ export function ReadyCompanyDialog({
 
     return (
         <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[425px] rounded-2xl border-none shadow-2xl p-0 overflow-hidden bg-background/95 backdrop-blur-sm">
-                <div className="bg-primary/5 p-8 flex flex-col items-center text-center gap-6">
-                    <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                        <span className="text-2xl font-bold text-primary">
-                            {localCompany.company_name.charAt(0)}
-                        </span>
-                    </div>
-                    <div className="space-y-2">
-                        <DialogTitle className="text-xl font-bold tracking-tight">
-                            {localCompany.company_name}
-                        </DialogTitle>
-                        <DialogDescription className="sr-only">
-                            Detailed information about {localCompany.company_name}
-                        </DialogDescription>
-                        <div className="flex items-center justify-center gap-2">
-                            <Badge variant="secondary" className="px-3 py-1 rounded-full text-[10px] font-medium uppercase tracking-wider">
-                                Ready Company
-                            </Badge>
+            <DialogContent className="sm:max-w-[425px] rounded-2xl border-none shadow-2xl p-0 bg-background/95 backdrop-blur-sm">
+                <DialogHeader className="p-0">
+                    <div className="bg-primary/5 p-8 flex flex-col items-center text-center gap-6 rounded-t-2xl">
+                        <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                            <span className="text-2xl font-bold text-primary">
+                                {localCompany.company_name.charAt(0)}
+                            </span>
+                        </div>
+                        <div className="space-y-2">
+                            <DialogTitle className="text-xl font-bold tracking-tight">
+                                {localCompany.company_name}
+                            </DialogTitle>
+                            <DialogDescription className="sr-only">
+                                Detailed information about {localCompany.company_name}
+                            </DialogDescription>
+                            <div className="flex items-center justify-center gap-2">
+                                <Badge variant="secondary" className="px-3 py-1 rounded-full text-[10px] font-medium uppercase tracking-wider">
+                                    Ready Company
+                                </Badge>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </DialogHeader>
 
                 <div className="p-8 space-y-6">
                     <div className="grid gap-4">
@@ -198,12 +201,15 @@ export function ReadyCompanyDialog({
                         {renderEditableField("Phone Number", "phone_number", <PhoneIcon className="h-4 w-4" />, "+1 234 567 890")}
                     </div>
 
-                    <button
-                        onClick={onClose}
-                        className="w-full py-3 px-4 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity active:scale-[0.98]"
-                    >
-                        Close
-                    </button>
+                    <div className="flex flex-col gap-2">
+                        <DialogClose asChild>
+                            <button
+                                className="w-full py-3 px-4 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity active:scale-[0.98]"
+                            >
+                                Close
+                            </button>
+                        </DialogClose>
+                    </div>
                 </div>
             </DialogContent>
         </Dialog>
