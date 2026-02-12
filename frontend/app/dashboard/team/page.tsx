@@ -1,5 +1,9 @@
-import GenericPage from "../generic-page"
+import { VoiceAIQueue } from "@/components/voice-ai-queue"
 
 export default function TeamPage() {
-    return <GenericPage title="Voice AI" description="Manage your voice AI agents and configurations." />
+    return (
+        <div className="p-8">
+            <VoiceAIQueue />
+        </div>
+    )
 }

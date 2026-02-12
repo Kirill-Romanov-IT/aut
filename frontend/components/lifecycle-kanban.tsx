@@ -43,7 +43,7 @@ type Company = {
     location: string
     employees: number
     status: CompanyStatus
-    callDate?: string // New field for "when to call"
+    scheduledAt: string // ISO string for sorting
 }
 
 type Column = {
@@ -54,31 +54,40 @@ type Column = {
 const STORAGE_KEY = "lifecycle-kanban-state"
 
 // --- Helpers ---
-const generateRandomCallDate = () => {
+const formatCallDate = (isoString: string) => {
+    if (!isoString) return ""
+    const date = new Date(isoString)
     const months = [
         "января", "февраля", "марта", "апреля", "мая", "июня",
         "июля", "августа", "сентября", "октября", "ноября", "декабря"
     ]
-    const day = Math.floor(Math.random() * 28) + 1
-    const month = months[Math.floor(Math.random() * months.length)]
-    const hour = Math.floor(Math.random() * 12) + 9 // 9:00 - 21:00
-    const minute = Math.random() > 0.5 ? "00" : "30"
+    const day = date.getDate()
+    const month = months[date.getMonth()]
+    const hour = date.getHours().toString().padStart(2, '0')
+    const minute = date.getMinutes().toString().padStart(2, '0')
 
     return `${day} ${month} в ${hour}:${minute}`
 }
 
+const generateRandomCallDate = () => {
+    const now = new Date()
+    const futureDate = new Date(now.getTime() + Math.random() * 10 * 24 * 60 * 60 * 1000) // Next 10 days
+    futureDate.setHours(Math.floor(Math.random() * 12) + 9, Math.random() > 0.5 ? 0 : 30, 0, 0)
+    return futureDate.toISOString()
+}
+
 // --- Mock Data ---
 const MOCK_COMPANIES: Company[] = [
-    { id: "1", name: "Владислав Сайко", location: "Moscow", employees: 120, status: "not-responding", callDate: generateRandomCallDate() },
-    { id: "2", name: "Global Solution", location: "St. Petersburg", employees: 45, status: "ivr", callDate: generateRandomCallDate() },
-    { id: "3", name: "Tech Innovators", location: "Kazan", employees: 200, status: "hang-up", callDate: generateRandomCallDate() },
-    { id: "4", name: "SoftServe", location: "Novosibirsk", employees: 15, status: "dm-found-call-time", callDate: generateRandomCallDate() },
-    { id: "5", name: "NextGen", location: "Yekaterinburg", employees: 500, status: "not-responding", callDate: generateRandomCallDate() },
-    { id: "6", name: "Alpha Group", location: "Samara", employees: 100, status: "ivr", callDate: generateRandomCallDate() },
-    { id: "7", name: "Omega Corp", location: "Omsk", employees: 50, status: "hang-up", callDate: generateRandomCallDate() },
-    { id: "8", name: "Delta Systems", location: "Ufa", employees: 300, status: "dm-found-call-time", callDate: generateRandomCallDate() },
-    { id: "9", name: "Zeta Inc", location: "Perm", employees: 80, status: "not-responding", callDate: generateRandomCallDate() },
-    { id: "10", name: "Beta LLC", location: "Voronezh", employees: 60, status: "ivr", callDate: generateRandomCallDate() },
+    { id: "1", name: "Владислав Сайко", location: "Moscow", employees: 120, status: "not-responding", scheduledAt: generateRandomCallDate() },
+    { id: "2", name: "Global Solution", location: "St. Petersburg", employees: 45, status: "ivr", scheduledAt: generateRandomCallDate() },
+    { id: "3", name: "Tech Innovators", location: "Kazan", employees: 200, status: "hang-up", scheduledAt: generateRandomCallDate() },
+    { id: "4", name: "SoftServe", location: "Novosibirsk", employees: 15, status: "dm-found-call-time", scheduledAt: generateRandomCallDate() },
+    { id: "5", name: "NextGen", location: "Yekaterinburg", employees: 500, status: "not-responding", scheduledAt: generateRandomCallDate() },
+    { id: "6", name: "Alpha Group", location: "Samara", employees: 100, status: "ivr", scheduledAt: generateRandomCallDate() },
+    { id: "7", name: "Omega Corp", location: "Omsk", employees: 50, status: "hang-up", scheduledAt: generateRandomCallDate() },
+    { id: "8", name: "Delta Systems", location: "Ufa", employees: 300, status: "dm-found-call-time", scheduledAt: generateRandomCallDate() },
+    { id: "9", name: "Zeta Inc", location: "Perm", employees: 80, status: "not-responding", scheduledAt: generateRandomCallDate() },
+    { id: "10", name: "Beta LLC", location: "Voronezh", employees: 60, status: "ivr", scheduledAt: generateRandomCallDate() },
 ]
 
 // --- Components ---
@@ -207,10 +216,10 @@ export function LifecycleKanban() {
         if (saved) {
             try {
                 const parsed = JSON.parse(saved)
-                // Ensure all loaded companies have a call date
+                // Ensure all loaded companies have a scheduledAt date and it's ISO
                 const validated = parsed.map((c: any) => ({
                     ...c,
-                    callDate: c.callDate || generateRandomCallDate()
+                    scheduledAt: (c.scheduledAt && c.scheduledAt.includes('T')) ? c.scheduledAt : generateRandomCallDate()
                 }))
                 setCompanies(validated)
             } catch (e) {
@@ -363,14 +372,14 @@ export function LifecycleKanban() {
                     <div className="p-8 space-y-6">
                         <div className="space-y-3">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
-                                Когда позвонить
+                                Запланировано на:
                             </label>
                             <div className="flex items-center gap-3 p-4 rounded-xl bg-primary/5 border border-primary/10">
                                 <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
                                 </div>
                                 <span className="text-sm font-semibold text-primary/80">
-                                    {selectedCompany?.callDate}
+                                    {selectedCompany && formatCallDate(selectedCompany.scheduledAt)}
                                 </span>
                             </div>
                         </div>
