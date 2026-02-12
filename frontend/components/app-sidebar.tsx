@@ -24,6 +24,7 @@ import { NavDocuments } from "@/components/nav-documents"
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
+import { useLanguage } from "@/components/language-provider"
 import {
   Sidebar,
   SidebarContent,
@@ -34,124 +35,126 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
-  navMain: [
-    {
-      title: "Dashboard",
-      url: "/dashboard",
-      icon: LayoutDashboardIcon,
-    },
-    {
-      title: "Lifecycle",
-      url: "/dashboard/lifecycle",
-      icon: ListIcon,
-    },
-    {
-      title: "Analytics",
-      url: "/dashboard/analytics",
-      icon: BarChartIcon,
-    },
-    {
-      title: "Companies",
-      url: "/dashboard/companies",
-      icon: FolderIcon,
-    },
-    {
-      title: "Voice AI",
-      url: "/dashboard/team",
-      icon: MicIcon,
-    },
-  ],
-  navClouds: [
-    {
-      title: "Capture",
-      icon: CameraIcon,
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Proposal",
-      icon: FileTextIcon,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Prompts",
-      icon: FileCodeIcon,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
-    },
-  ],
-  navSecondary: [
-    {
-      title: "Settings",
-      url: "/dashboard/settings",
-      icon: SettingsIcon,
-    },
-    {
-      title: "Get Help",
-      url: "/dashboard/help",
-      icon: HelpCircleIcon,
-    },
-    {
-      title: "Search",
-      url: "/dashboard/search",
-      icon: SearchIcon,
-    },
-  ],
-  documents: [
-    {
-      name: "Data Library",
-      url: "/dashboard/data-library",
-      icon: DatabaseIcon,
-    },
-    {
-      name: "Reports",
-      url: "/dashboard/reports",
-      icon: ClipboardListIcon,
-    },
-    {
-      name: "Word Assistant",
-      url: "/dashboard/word-assistant",
-      icon: FileIcon,
-    },
-  ],
-}
-
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const { t } = useLanguage();
+
+  const data = {
+    user: {
+      name: "shadcn",
+      email: "m@example.com",
+      avatar: "/avatars/shadcn.jpg",
+    },
+    navMain: [
+      {
+        title: t('dashboard'),
+        url: "/dashboard",
+        icon: LayoutDashboardIcon,
+      },
+      {
+        title: t('lifecycle'),
+        url: "/dashboard/lifecycle",
+        icon: ListIcon,
+      },
+      {
+        title: t('analytics'),
+        url: "/dashboard/analytics",
+        icon: BarChartIcon,
+      },
+      {
+        title: t('companies'),
+        url: "/dashboard/companies",
+        icon: FolderIcon,
+      },
+      {
+        title: t('voiceAi'),
+        url: "/dashboard/team",
+        icon: MicIcon,
+      },
+    ],
+    navClouds: [
+      {
+        title: "Capture",
+        icon: CameraIcon,
+        isActive: true,
+        url: "#",
+        items: [
+          {
+            title: "Active Proposals",
+            url: "#",
+          },
+          {
+            title: "Archived",
+            url: "#",
+          },
+        ],
+      },
+      {
+        title: "Proposal",
+        icon: FileTextIcon,
+        url: "#",
+        items: [
+          {
+            title: "Active Proposals",
+            url: "#",
+          },
+          {
+            title: "Archived",
+            url: "#",
+          },
+        ],
+      },
+      {
+        title: "Prompts",
+        icon: FileCodeIcon,
+        url: "#",
+        items: [
+          {
+            title: "Active Proposals",
+            url: "#",
+          },
+          {
+            title: "Archived",
+            url: "#",
+          },
+        ],
+      },
+    ],
+    navSecondary: [
+      {
+        title: t('settings'),
+        url: "/dashboard/settings",
+        icon: SettingsIcon,
+      },
+      {
+        title: t('getHelp'),
+        url: "/dashboard/help",
+        icon: HelpCircleIcon,
+      },
+      {
+        title: t('search'),
+        url: "/dashboard/search",
+        icon: SearchIcon,
+      },
+    ],
+    documents: [
+      {
+        name: t('dataLibrary'),
+        url: "/dashboard/data-library",
+        icon: DatabaseIcon,
+      },
+      {
+        name: t('reports'),
+        url: "/dashboard/reports",
+        icon: ClipboardListIcon,
+      },
+      {
+        name: t('wordAssistant'),
+        url: "/dashboard/word-assistant",
+        icon: FileIcon,
+      },
+    ],
+  }
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -163,7 +166,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             >
               <a href="#">
                 <ArrowUpCircleIcon className="h-5 w-5" />
-                <span className="text-base font-semibold">Acme Inc.</span>
+                <span className="text-base font-semibold">{t('acmeInc')}</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
