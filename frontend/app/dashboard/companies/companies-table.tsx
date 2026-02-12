@@ -25,6 +25,29 @@ import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
 import { useLanguage } from "@/components/language-provider"
 
+const buildHeadcountPrompt = (companyName: string, location: string) => {
+    return `You are an OSINT analyst. Determine the approximate number of employees (headcount)
+of a company using publicly available information.
+
+Company name: "${companyName}"
+Location: "${location}"
+
+Rules:
+- Return ONLY valid JSON.
+- No explanations.
+- No markdown.
+- No extra text.
+- If an exact number is unknown, return a range (min/max).
+- Include a confidence score (0..1) and a short source hint.
+
+JSON format:
+{
+  "headcount": { "value": number | null, "min": number | null, "max": number | null },
+  "confidence": number,
+  "source_hint": string
+}`
+}
+
 const initialCompanies: Company[] = [
     {
         id: "1",
@@ -253,6 +276,192 @@ export function CompaniesTable({
         toast.info(t('success'))
     }
 
+    const handleFillEmployeeCount = async (company: Company) => {
+        const loadingToast = toast.loading(t('loading'))
+        try {
+            const token = localStorage.getItem("token")
+            if (!token) {
+                router.push("/")
+                return
+            }
+
+            const prompt = buildHeadcountPrompt(company.name, company.location)
+
+            // 1. Call Gemini Endpoint
+            const aiResponse = await fetch("http://localhost:8000/companies/ai-estimate-headcount", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ prompt }),
+            })
+
+            if (!aiResponse.ok) {
+                const err = await aiResponse.json()
+                throw new Error(err.detail || "AI request failed")
+            }
+
+            const aiData = await aiResponse.json()
+            console.log("Gemini Response:", aiData)
+
+            let estimatedCount = 0
+            if (aiData.headcount?.value) {
+                estimatedCount = aiData.headcount.value
+            } else if (aiData.headcount?.min && aiData.headcount?.max) {
+                estimatedCount = Math.floor((aiData.headcount.min + aiData.headcount.max) / 2)
+            } else if (aiData.headcount?.min) {
+                estimatedCount = aiData.headcount.min
+            } else if (aiData.headcount?.max) {
+                estimatedCount = aiData.headcount.max
+            }
+
+            if (!estimatedCount) {
+                toast.warning("Could not determine headcount")
+                return
+            }
+
+            // 2. Update Company via PUT
+            const updateResponse = await fetch(`http://localhost:8000/companies/${company.id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    ...company,
+                    employees: estimatedCount,
+                    // Keep other fields as is, or updated if they changed in the backend logic, 
+                    // but here we are sending what we have + new employee count.
+                    // Note: The PUT endpoint expects name, employees, location.
+                    name: company.name,
+                    location: company.location
+                }),
+            })
+
+            if (updateResponse.ok) {
+                toast.success(t('success'))
+                onUpdate()
+            } else {
+                const errorData = await updateResponse.json()
+                toast.error(errorData.detail || t('error'))
+            }
+
+        } catch (error) {
+            console.error("Fill employee count error:", error)
+            toast.error(t('error'))
+        } finally {
+            toast.dismiss(loadingToast)
+        }
+    }
+
+    const handleBulkFillEmployeeCount = async () => {
+        if (selectedIds.size === 0) return
+
+        const loadingToast = toast.loading(t('loading') || "Processing...")
+        try {
+            const token = localStorage.getItem("token")
+            if (!token) {
+                router.push("/")
+                return
+            }
+
+            // 1. Filter companies: selected AND (employees is 0 or null/undefined)
+            const companiesToProcess = companies.filter(c =>
+                selectedIds.has(c.id) && (!c.employees || c.employees === 0)
+            )
+
+            if (companiesToProcess.length === 0) {
+                toast.info("No companies need updating (all selected have employees count).")
+                return
+            }
+
+            // 2. Chunk into groups of 10
+            const chunkSize = 10
+            const chunks = []
+            for (let i = 0; i < companiesToProcess.length; i += chunkSize) {
+                chunks.push(companiesToProcess.slice(i, i + chunkSize))
+            }
+
+            let updatedCount = 0
+
+            // 3. Process each chunk
+            for (const chunk of chunks) {
+                // Prepare payload for AI Bulk Endpoint
+                const payload = {
+                    companies: chunk.map(c => ({
+                        id: c.id,
+                        name: c.name,
+                        location: c.location
+                    }))
+                }
+
+                const aiResponse = await fetch("http://localhost:8000/companies/ai-bulk-estimate-headcount", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(payload),
+                })
+
+                if (!aiResponse.ok) {
+                    console.error("Bulk AI request failed")
+                    continue // Try next chunk
+                }
+
+                const aiResults = await aiResponse.json()
+
+                // Prepare updates for Bulk Enrich Endpoint
+                const updates = []
+                for (const result of aiResults) {
+                    let estimatedCount = 0
+                    if (result.headcount?.value) {
+                        estimatedCount = result.headcount.value
+                    } else if (result.headcount?.min && result.headcount?.max) {
+                        estimatedCount = Math.floor((result.headcount.min + result.headcount.max) / 2)
+                    } else if (result.headcount?.min) {
+                        estimatedCount = result.headcount.min
+                    } else if (result.headcount?.max) {
+                        estimatedCount = result.headcount.max
+                    }
+
+                    if (estimatedCount > 0) {
+                        updates.push({
+                            id: result.id, // ID from AI result (string/number)
+                            employees: estimatedCount
+                        })
+                    }
+                }
+
+                if (updates.length > 0) {
+                    const saveResponse = await fetch("http://localhost:8000/companies/bulk-enrich", {
+                        method: "PATCH",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify(updates),
+                    })
+
+                    if (saveResponse.ok) {
+                        updatedCount += updates.length
+                    }
+                }
+            }
+
+            toast.success(`Updated ${updatedCount} companies.`)
+            onUpdate()
+            setSelectedIds(new Set())
+
+        } catch (error) {
+            console.error("Bulk fill error:", error)
+            toast.error(t('error'))
+        } finally {
+            toast.dismiss(loadingToast)
+        }
+    }
+
     const handleDeselectAll = () => {
         setSelectedIds(new Set())
     }
@@ -321,6 +530,7 @@ export function CompaniesTable({
                                 </div>
                             </TableHead>
                             <TableHead className="font-semibold text-foreground">{t('createdAt')}</TableHead>
+                            <TableHead className="w-[50px]"></TableHead>
                             <TableHead className="text-right w-[60px]">
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -359,10 +569,10 @@ export function CompaniesTable({
                                                     className="cursor-pointer"
                                                     onClick={(e) => {
                                                         e.stopPropagation()
-                                                        onEnrich()
+                                                        handleBulkFillEmployeeCount()
                                                     }}
                                                 >
-                                                    {t('enrichData')}
+                                                    {t('fillEmployeeCount') || "Fill employee count"}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem
                                                     className="cursor-pointer"
@@ -415,6 +625,25 @@ export function CompaniesTable({
                                     <TableCell>{company.location}</TableCell>
                                     <TableCell className="text-muted-foreground">
                                         {company.created_at ? new Date(company.created_at).toLocaleDateString(locale) : (language === 'ru' ? 'Н/Д' : 'N/A')}
+                                    </TableCell>
+                                    <TableCell>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
+                                                    <MoreVertical className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        handleFillEmployeeCount(company)
+                                                    }}
+                                                >
+                                                    Fill employee count
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <Checkbox

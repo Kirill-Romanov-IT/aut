@@ -507,3 +507,39 @@ async def bulk_move_to_kanban(company_ids: list[int], current_user: models.User 
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
+from pydantic import BaseModel
+
+class HeadcountPrompt(BaseModel):
+    prompt: str
+
+@app.post("/companies/ai-estimate-headcount")
+async def estimate_headcount_ep(body: HeadcountPrompt, current_user: models.User = Depends(get_current_user)):
+    try:
+        from ai_service import estimate_headcount
+        # The service expects a string prompt.
+        result = estimate_headcount(body.prompt)
+        return result
+    except Exception as e:
+        print(f"Error in estimate_headcount endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class CompanyInfo(BaseModel):
+    id: str | int
+    name: str
+    location: str
+
+class BulkHeadcountRequest(BaseModel):
+    companies: list[CompanyInfo]
+
+@app.post("/companies/ai-bulk-estimate-headcount")
+async def estimate_headcount_bulk_ep(body: BulkHeadcountRequest, current_user: models.User = Depends(get_current_user)):
+    try:
+        from ai_service import estimate_headcount_bulk
+        # Convert Pydantic models to dicts
+        companies_dicts = [c.model_dump() for c in body.companies]
+        results = estimate_headcount_bulk(companies_dicts)
+        return results
+    except Exception as e:
+        print(f"Error in estimate_headcount_bulk endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
