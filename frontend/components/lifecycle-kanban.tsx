@@ -26,6 +26,8 @@ import {
 import { CSS } from "@dnd-kit/utilities"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { ZapIcon } from "lucide-react"
 import {
     Dialog,
     DialogContent,
@@ -51,7 +53,8 @@ type Column = {
     title: string
 }
 
-const STORAGE_KEY = "lifecycle-kanban-state"
+const KANBAN_STORAGE_KEY = "lifecycle-kanban-state"
+const QUEUE_STORAGE_KEY = "voice-ai-queue-state"
 
 // --- Helpers ---
 const formatCallDate = (isoString: string) => {
@@ -212,7 +215,7 @@ export function LifecycleKanban() {
 
     // Hydration fix & LocalStorage Load
     React.useEffect(() => {
-        const saved = localStorage.getItem(STORAGE_KEY)
+        const saved = localStorage.getItem(KANBAN_STORAGE_KEY)
         if (saved) {
             try {
                 const parsed = JSON.parse(saved)
@@ -229,12 +232,19 @@ export function LifecycleKanban() {
         setMounted(true)
     }, [])
 
-    // LocalStorage Save
+    // LocalStorage Save (Board State only)
     React.useEffect(() => {
         if (mounted) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(companies))
+            localStorage.setItem(KANBAN_STORAGE_KEY, JSON.stringify(companies))
         }
     }, [companies, mounted])
+
+    const generateQueue = () => {
+        localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(companies))
+        // Dispatch event for Voice AI page to update
+        window.dispatchEvent(new Event('storage'))
+        alert("Queue successfully generated for Voice AI!")
+    }
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -321,7 +331,21 @@ export function LifecycleKanban() {
     }
 
     return (
-        <>
+        <div className="space-y-6">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-2xl font-bold tracking-tight">Lifecycle Management</h2>
+                    <p className="text-sm text-muted-foreground">Manage your deals and sequence them for Voice AI</p>
+                </div>
+                <Button
+                    onClick={generateQueue}
+                    className="rounded-xl shadow-lg shadow-primary/20 hover:scale-105 transition-all active:scale-95"
+                >
+                    <ZapIcon className="h-4 w-4 mr-2 fill-current" />
+                    Generate Queue
+                </Button>
+            </div>
+
             <DndContext
                 sensors={sensors}
                 collisionDetection={closestCorners}
@@ -393,6 +417,6 @@ export function LifecycleKanban() {
                     </div>
                 </DialogContent>
             </Dialog>
-        </>
+        </div>
     )
 }

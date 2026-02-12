@@ -3,7 +3,8 @@
 import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { CalendarIcon, ClockIcon, UserIcon, MapPinIcon, MicIcon } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { CalendarIcon, ClockIcon, UserIcon, MapPinIcon, MicIcon, Trash2Icon } from "lucide-react"
 
 type CompanyStatus = "not-responding" | "ivr" | "hang-up" | "dm-found-call-time"
 
@@ -16,7 +17,7 @@ type Company = {
     scheduledAt: string
 }
 
-const STORAGE_KEY = "lifecycle-kanban-state"
+const QUEUE_STORAGE_KEY = "voice-ai-queue-state"
 
 const formatCallDate = (isoString: string) => {
     if (!isoString) return ""
@@ -50,7 +51,7 @@ export function VoiceAIQueue() {
     React.useEffect(() => {
         setMounted(true)
         const loadData = () => {
-            const saved = localStorage.getItem(STORAGE_KEY)
+            const saved = localStorage.getItem(QUEUE_STORAGE_KEY)
             if (saved) {
                 try {
                     const parsed = JSON.parse(saved)
@@ -67,17 +68,37 @@ export function VoiceAIQueue() {
 
         loadData()
         // Listen for storage changes in other tabs/components
-        window.addEventListener('storage', loadData)
+        window.addEventListener('storage', (e) => {
+            if (e.key === QUEUE_STORAGE_KEY) loadData()
+        })
         return () => window.removeEventListener('storage', loadData)
     }, [])
+
+    const clearQueue = () => {
+        localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify([]))
+        setCompanies([])
+        // Dispatch event for other tabs
+        window.dispatchEvent(new Event('storage'))
+    }
 
     if (!mounted) return null
 
     return (
         <Card className="border-none shadow-none bg-transparent">
-            <CardHeader className="px-0 pt-0 pb-6">
-                <CardTitle className="text-2xl font-bold tracking-tight">Voice AI Call Queue</CardTitle>
-                <p className="text-sm text-muted-foreground">Upcoming calls at the top</p>
+            <CardHeader className="px-0 pt-0 pb-6 flex flex-row items-center justify-between space-y-0">
+                <div>
+                    <CardTitle className="text-2xl font-bold tracking-tight">Voice AI Call Queue</CardTitle>
+                    <p className="text-sm text-muted-foreground">Upcoming calls at the top</p>
+                </div>
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={clearQueue}
+                    className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 transition-all active:scale-95"
+                >
+                    <Trash2Icon className="h-4 w-4 mr-2" />
+                    Clear Queue
+                </Button>
             </CardHeader>
             <CardContent className="px-0">
                 <div className="space-y-4">
