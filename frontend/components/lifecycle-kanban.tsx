@@ -27,7 +27,7 @@ import { CSS } from "@dnd-kit/utilities"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ZapIcon } from "lucide-react"
+import { ZapIcon, PencilIcon, CheckIcon, XIcon } from "lucide-react"
 import {
     Dialog,
     DialogContent,
@@ -212,6 +212,8 @@ export function LifecycleKanban() {
     const [companies, setCompanies] = React.useState<Company[]>(MOCK_COMPANIES)
     const [activeId, setActiveId] = React.useState<string | null>(null)
     const [selectedCompany, setSelectedCompany] = React.useState<Company | null>(null)
+    const [isEditingTime, setIsEditingTime] = React.useState(false)
+    const [tempTime, setTempTime] = React.useState("")
 
     // Hydration fix & LocalStorage Load
     React.useEffect(() => {
@@ -244,6 +246,23 @@ export function LifecycleKanban() {
         // Dispatch event for Voice AI page to update
         window.dispatchEvent(new Event('storage'))
         alert("Queue successfully generated for Voice AI!")
+    }
+
+    const handleTimeSave = () => {
+        if (!selectedCompany || !tempTime) return
+
+        const isoTime = new Date(tempTime).toISOString()
+        setCompanies(prev => prev.map(c =>
+            c.id === selectedCompany.id ? { ...c, scheduledAt: isoTime } : c
+        ))
+        setSelectedCompany(prev => prev ? { ...prev, scheduledAt: isoTime } : null)
+        setIsEditingTime(false)
+    }
+
+    const startEditingTime = () => {
+        if (!selectedCompany) return
+        setTempTime(new Date(selectedCompany.scheduledAt).toISOString().slice(0, 16))
+        setIsEditingTime(true)
     }
 
     const sensors = useSensors(
@@ -369,7 +388,12 @@ export function LifecycleKanban() {
                 </DragOverlay>
             </DndContext>
 
-            <Dialog open={!!selectedCompany} onOpenChange={(open) => !open && setSelectedCompany(null)}>
+            <Dialog open={!!selectedCompany} onOpenChange={(open) => {
+                if (!open) {
+                    setSelectedCompany(null)
+                    setIsEditingTime(false)
+                }
+            }}>
                 <DialogContent className="sm:max-w-[425px] rounded-2xl border-none shadow-2xl p-0 overflow-hidden bg-background/95 backdrop-blur-sm">
                     <div className="bg-primary/5 p-8 flex flex-col items-center text-center gap-6">
                         <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
@@ -402,9 +426,43 @@ export function LifecycleKanban() {
                                 <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
                                 </div>
-                                <span className="text-sm font-semibold text-primary/80">
-                                    {selectedCompany && formatCallDate(selectedCompany.scheduledAt)}
-                                </span>
+                                {isEditingTime ? (
+                                    <div className="flex items-center gap-2 flex-1">
+                                        <input
+                                            type="datetime-local"
+                                            value={tempTime}
+                                            onChange={(e) => setTempTime(e.target.value)}
+                                            className="bg-background border rounded-md px-2 py-1 text-sm font-semibold text-primary/80 focus:ring-1 focus:ring-primary w-full"
+                                        />
+                                        <button
+                                            onClick={handleTimeSave}
+                                            className="p-1 hover:bg-green-100 text-green-600 rounded-md transition-colors"
+                                            title="Save"
+                                        >
+                                            <CheckIcon className="h-4 w-4" />
+                                        </button>
+                                        <button
+                                            onClick={() => setIsEditingTime(false)}
+                                            className="p-1 hover:bg-red-100 text-red-600 rounded-md transition-colors"
+                                            title="Cancel"
+                                        >
+                                            <XIcon className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center justify-between flex-1">
+                                        <span className="text-sm font-semibold text-primary/80">
+                                            {selectedCompany && formatCallDate(selectedCompany.scheduledAt)}
+                                        </span>
+                                        <button
+                                            onClick={startEditingTime}
+                                            className="p-1.5 hover:bg-primary/10 text-primary/60 hover:text-primary rounded-md transition-all active:scale-90"
+                                            title="Edit Time"
+                                        >
+                                            <PencilIcon className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
