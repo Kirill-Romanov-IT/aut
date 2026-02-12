@@ -218,12 +218,21 @@ export function LifecycleKanban() {
         if (saved) {
             try {
                 const parsed = JSON.parse(saved)
-                // Ensure all loaded companies have a scheduledAt date and it's ISO
-                const validated = parsed.map((c: any) => ({
-                    ...c,
-                    scheduledAt: (c.scheduledAt && c.scheduledAt.includes('T')) ? c.scheduledAt : generateRandomCallDate()
-                }))
-                setCompanies(validated)
+                // If the user deleted everything and wants them back, or if it's the first load
+                if (parsed.length === 0) {
+                    const restored = MOCK_COMPANIES.map(c => ({
+                        ...c,
+                        scheduledAt: generateRandomCallDate()
+                    }))
+                    setCompanies(restored)
+                } else {
+                    // Ensure all loaded companies have a scheduledAt date and it's ISO
+                    const validated = parsed.map((c: any) => ({
+                        ...c,
+                        scheduledAt: (c.scheduledAt && c.scheduledAt.includes('T')) ? c.scheduledAt : generateRandomCallDate()
+                    }))
+                    setCompanies(validated)
+                }
             } catch (e) {
                 console.error("Failed to load kanban state", e)
             }
@@ -357,13 +366,15 @@ export function LifecycleKanban() {
                     <h2 className="text-2xl font-bold tracking-tight">Lifecycle Management</h2>
                     <p className="text-sm text-muted-foreground">Manage your deals and sequence them for Voice AI</p>
                 </div>
-                <Button
-                    onClick={generateQueue}
-                    className="rounded-xl shadow-lg shadow-primary/20 hover:scale-105 transition-all active:scale-95"
-                >
-                    <ZapIcon className="h-4 w-4 mr-2 fill-current" />
-                    Generate Queue
-                </Button>
+                <div className="flex items-center gap-3">
+                    <Button
+                        onClick={generateQueue}
+                        className="rounded-xl shadow-lg shadow-primary/20 hover:scale-105 transition-all active:scale-95"
+                    >
+                        <ZapIcon className="h-4 w-4 mr-2 fill-current" />
+                        Generate Queue
+                    </Button>
+                </div>
             </div>
 
             <DndContext
