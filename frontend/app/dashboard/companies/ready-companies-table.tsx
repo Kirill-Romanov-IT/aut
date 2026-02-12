@@ -103,6 +103,59 @@ export function ReadyCompaniesTable({
         return result
     }, [companies, sortConfig, filters])
 
+    const handleBulkMoveToKanban = async () => {
+        if (selectedIds.size === 0) return
+
+        const loadingToast = toast.loading(`Moving ${selectedIds.size} companies to Kanban...`)
+        try {
+            const token = localStorage.getItem("token")
+            if (!token) {
+                router.push("/")
+                return
+            }
+
+            const response = await fetch("http://localhost:8000/ready-companies/bulk-move-to-kanban", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(Array.from(selectedIds)),
+            })
+
+            if (response.ok) {
+                const movedCompanies = await response.json()
+
+                // Sync with Kanban localStorage
+                const kanbanData = localStorage.getItem("lifecycle-kanban-state")
+                const currentKanban = kanbanData ? JSON.parse(kanbanData) : []
+
+                const newKanbanCompanies = movedCompanies.map((comp: any) => ({
+                    id: comp.id.toString(),
+                    name: comp.name,
+                    location: comp.location || "",
+                    employees: comp.employees || 0,
+                    status: comp.status || "new",
+                    scheduledAt: comp.scheduled_at || new Date().toISOString()
+                }))
+
+                localStorage.setItem("lifecycle-kanban-state", JSON.stringify([...currentKanban, ...newKanbanCompanies]))
+
+                toast.success(`Successfully moved ${selectedIds.size} companies to Kanban`)
+                setSelectedIds(new Set())
+                onUpdate()
+            } else {
+                const error = await response.json()
+                toast.error(error.detail || "Failed to move companies")
+            }
+        } catch (error) {
+            console.error("Bulk move error:", error)
+            toast.error("An error occurred")
+        } finally {
+            toast.dismiss(loadingToast)
+        }
+    }
+
     const handleBulkDelete = async () => {
         if (selectedIds.size === 0) return
 
@@ -216,27 +269,37 @@ export function ReadyCompaniesTable({
                                 </div>
                             </TableHead>
                             <TableHead className="text-right w-[60px]">
-                                {selectedIds.size > 0 && (
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted" onClick={(e) => e.stopPropagation()}>
-                                                <MoreVertical className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem
-                                                className="text-destructive focus:text-destructive"
-                                                onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    handleBulkDelete()
-                                                }}
-                                            >
-                                                <Trash2 className="mr-2 h-4 w-4" />
-                                                <span>Delete Selected ({selectedIds.size})</span>
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                )}
+                                <div className="flex items-center justify-end gap-2">
+                                    {selectedIds.size > 0 && (
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted" onClick={(e) => e.stopPropagation()}>
+                                                    <MoreVertical className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                <DropdownMenuItem
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        handleBulkMoveToKanban()
+                                                    }}
+                                                >
+                                                    Add to Kanban
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem
+                                                    className="text-destructive focus:text-destructive"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        handleBulkDelete()
+                                                    }}
+                                                >
+                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                    <span>Delete Selected ({selectedIds.size})</span>
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    )}
+                                </div>
                             </TableHead>
                         </TableRow>
                     </TableHeader>
@@ -262,19 +325,21 @@ export function ReadyCompaniesTable({
                                     <TableCell>{company.sur_name || '-'}</TableCell>
                                     <TableCell>{company.phone_number || '-'}</TableCell>
                                     <TableCell className="text-right">
-                                        <Checkbox
-                                            checked={selectedIds.has(company.id)}
-                                            onCheckedChange={(checked) => {
-                                                const newSelected = new Set(selectedIds)
-                                                if (checked) {
-                                                    newSelected.add(company.id)
-                                                } else {
-                                                    newSelected.delete(company.id)
-                                                }
-                                                setSelectedIds(newSelected)
-                                            }}
-                                            onClick={(e) => e.stopPropagation()}
-                                        />
+                                        <div className="flex items-center justify-end">
+                                            <Checkbox
+                                                checked={selectedIds.has(company.id)}
+                                                onCheckedChange={(checked) => {
+                                                    const newSelected = new Set(selectedIds)
+                                                    if (checked) {
+                                                        newSelected.add(company.id)
+                                                    } else {
+                                                        newSelected.delete(company.id)
+                                                    }
+                                                    setSelectedIds(newSelected)
+                                                }}
+                                                onClick={(e) => e.stopPropagation()}
+                                            />
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             ))

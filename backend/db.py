@@ -29,13 +29,23 @@ def init_db():
                     location VARCHAR(255),
                     limit_val VARCHAR(255),
                     description TEXT,
+                    status VARCHAR(50) DEFAULT 'new',
+                    scheduled_at TIMESTAMP,
+                    contact_name VARCHAR(255),
+                    contact_surname VARCHAR(255),
+                    contact_phone VARCHAR(255),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
 
-            # Ensure description column exists for existing tables
+            # Ensure columns exist for existing tables
             try:
                 cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS description TEXT;")
+                cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'new';")
+                cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS scheduled_at TIMESTAMP;")
+                cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS contact_name VARCHAR(255);")
+                cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS contact_surname VARCHAR(255);")
+                cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(255);")
             except Exception:
                 pass # Should not fail with IF NOT EXISTS, but being safe.
 

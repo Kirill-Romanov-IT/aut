@@ -30,6 +30,11 @@ class CompanyCreate(BaseModel):
     limit_val: Optional[str] = None
     description: Optional[str] = None
     is_ready: bool = False
+    status: str = "new"
+    scheduled_at: Optional[datetime] = None
+    contact_name: Optional[str] = None
+    contact_surname: Optional[str] = None
+    contact_phone: Optional[str] = None
 
 class Company(BaseModel):
     id: int
@@ -39,6 +44,11 @@ class Company(BaseModel):
     limit_val: Optional[str]
     description: Optional[str]
     is_ready: bool = False
+    status: str = "new"
+    scheduled_at: Optional[datetime] = None
+    contact_name: Optional[str] = None
+    contact_surname: Optional[str] = None
+    contact_phone: Optional[str] = None
     created_at: Optional[datetime] = None
 
 class CompanyEnrich(BaseModel):

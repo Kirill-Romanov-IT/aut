@@ -374,3 +374,76 @@ async def update_ready_company(company_id: int, company_update: models.ReadyComp
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
+@app.post("/ready-companies/{company_id}/move-to-kanban", response_model=models.Company)
+async def move_to_kanban(company_id: int, current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            # 1. Fetch from ready_companies
+            cur.execute("SELECT * FROM ready_companies WHERE id = %s", (company_id,))
+            ready_comp = cur.fetchone()
+            if not ready_comp:
+                raise HTTPException(status_code=404, detail="Ready company not found")
+            
+            # 2. Insert into companies (with status='new')
+            cur.execute(
+                """
+                INSERT INTO companies (name, location, status, contact_name, contact_surname, contact_phone)
+                VALUES (%s, %s, 'new', %s, %s, %s)
+                RETURNING *
+                """,
+                (ready_comp['company_name'], ready_comp['location'], ready_comp['name'], 
+                 ready_comp['sur_name'], ready_comp['phone_number'])
+            )
+            new_company = cur.fetchone()
+            
+            # 3. Delete from ready_companies
+            cur.execute("DELETE FROM ready_companies WHERE id = %s", (company_id,))
+            
+            conn.commit()
+            return models.Company(**new_company)
+    except Exception as e:
+        conn.rollback()
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.post("/ready-companies/bulk-move-to-kanban", response_model=list[models.Company])
+async def bulk_move_to_kanban(company_ids: list[int], current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        moved_companies = []
+        with conn.cursor() as cur:
+            for company_id in company_ids:
+                # 1. Fetch from ready_companies
+                cur.execute("SELECT * FROM ready_companies WHERE id = %s", (company_id,))
+                ready_comp = cur.fetchone()
+                if not ready_comp:
+                    continue
+                
+                # 2. Insert into companies (with status='new')
+                cur.execute(
+                    """
+                    INSERT INTO companies (name, location, status, contact_name, contact_surname, contact_phone)
+                    VALUES (%s, %s, 'new', %s, %s, %s)
+                    RETURNING *
+                    """,
+                    (ready_comp['company_name'], ready_comp['location'], ready_comp['name'], 
+                     ready_comp['sur_name'], ready_comp['phone_number'])
+                )
+                new_company = cur.fetchone()
+                moved_companies.append(models.Company(**new_company))
+                
+                # 3. Delete from ready_companies
+                cur.execute("DELETE FROM ready_companies WHERE id = %s", (company_id,))
+            
+            conn.commit()
+            return moved_companies
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
