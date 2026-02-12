@@ -70,3 +70,17 @@ class ReadyCompany(BaseModel):
     sur_name: Optional[str]
     phone_number: Optional[str]
     created_at: Optional[datetime] = None
+
+class ReadyCompanyEnrich(BaseModel):
+    id: int
+    name: Optional[str] = None
+    sur_name: Optional[str] = None
+    phone_number: Optional[str] = None
+
+class DecisionMakerRequestItem(BaseModel):
+    id: int | str 
+    company_name: str
+    location: Optional[str] = None
+
+class BulkDecisionMakerRequest(BaseModel):
+    companies: list[DecisionMakerRequestItem]

@@ -158,3 +158,86 @@ JSON format:
     except Exception as e:
         print(f"Gemini Bulk Error: {e}")
         raise HTTPException(status_code=500, detail=f"Gemini API Bulk Error: {str(e)}")
+
+def find_decision_maker_bulk(companies: list[dict]) -> list[dict]:
+    """
+    companies: list of dicts with 'id', 'company_name', 'location'
+    Returns: list of dicts with 'id', 'name', 'sur_name', 'phone_number', 'confidence', 'source_hint'
+    """
+    client = get_client()
+
+    # Construct a bulk prompt
+    companies_text = ""
+    for c in companies:
+        companies_text += f"- ID: {c['id']}, Company Name: {c['company_name']}, Location: {c['location']}\n"
+
+    prompt = f"""You are an OSINT analyst. Find the Decision Maker (CEO, Founder, Owner, or key executive) for the following companies.
+Also try to find their phone number if publicly available (corporate or direct).
+
+Companies:
+{companies_text}
+
+Rules:
+- Return ONLY valid JSON.
+- No explanations.
+- Return a LIST of objects, one for each company.
+- Each object must include the 'id' from the input.
+- 'name' should be the First Name.
+- 'sur_name' should be the Last Name.
+- 'phone_number' should be the best available phone number (or null if not found).
+- Include a confidence score (0..1) and a short source hint.
+
+JSON format:
+[
+  {{
+    "id": "string | number",
+    "name": "string | null",
+    "sur_name": "string | null",
+    "phone_number": "string | null",
+    "confidence": number,
+    "source_hint": string
+  }}
+]
+"""
+
+    # Configure for JSON response
+    config = types.GenerateContentConfig(
+        response_mime_type="application/json",
+        response_schema={
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "id": {"type": "STRING"},
+                    "name": {"type": "STRING", "nullable": True},
+                    "sur_name": {"type": "STRING", "nullable": True},
+                    "phone_number": {"type": "STRING", "nullable": True},
+                    "confidence": {"type": "NUMBER"},
+                    "source_hint": {"type": "STRING"}
+                }
+            }
+        },
+        tools=[types.Tool(google_search=types.GoogleSearch())]
+    )
+
+    try:
+        response = client.models.generate_content(
+            model=MODEL_NAME,
+            contents=prompt,
+            config=config,
+        )
+        
+        raw_text = getattr(response, "text", None)
+        data = safe_json_load(raw_text)
+        
+        if not data or not isinstance(data, list):
+             if isinstance(data, dict):
+                 data = [data]
+             else:
+                 raise ValueError("Failed to parse JSON list from Gemini response")
+
+        return data
+
+    except Exception as e:
+        print(f"Gemini DM Bulk Error: {e}")
+        raise HTTPException(status_code=500, detail=f"Gemini API DM Bulk Error: {str(e)}")

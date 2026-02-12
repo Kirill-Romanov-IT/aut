@@ -184,6 +184,93 @@ export function ReadyCompaniesTable({
         }
     }
 
+    const handleBulkFindDecisionMaker = async () => {
+        if (selectedIds.size === 0) return
+
+        const loadingToast = toast.loading(t('loading'))
+        try {
+            const token = localStorage.getItem("token")
+            if (!token) {
+                router.push("/")
+                return
+            }
+
+            // 1. Filter companies: selected companies
+            const companiesToProcess = companies.filter(c => selectedIds.has(c.id))
+
+            if (companiesToProcess.length === 0) return
+
+            // 2. Chunk into groups of 5
+            const chunkSize = 5
+            const chunks = []
+            for (let i = 0; i < companiesToProcess.length; i += chunkSize) {
+                chunks.push(companiesToProcess.slice(i, i + chunkSize))
+            }
+
+            let updatedCount = 0
+
+            // 3. Process each chunk
+            for (const chunk of chunks) {
+                const payload = {
+                    companies: chunk.map(c => ({
+                        id: c.id,
+                        company_name: c.company_name,
+                        location: c.location
+                    }))
+                }
+
+                const aiResponse = await fetch("http://localhost:8000/ready-companies/ai-bulk-find-decision-maker", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(payload),
+                })
+
+                if (!aiResponse.ok) {
+                    console.error("Bulk AI DM request failed")
+                    continue
+                }
+
+                const aiResults = await aiResponse.json()
+
+                // Prepare updates for Bulk Enrich Endpoint
+                const updates = aiResults.map((result: any) => ({
+                    id: result.id,
+                    name: result.name,
+                    sur_name: result.sur_name,
+                    phone_number: result.phone_number
+                })).filter((u: any) => u.name || u.sur_name || u.phone_number)
+
+                if (updates.length > 0) {
+                    const saveResponse = await fetch("http://localhost:8000/ready-companies/bulk-enrich", {
+                        method: "PATCH",
+                        headers: {
+                            "Content-Type": "application/json",
+                            Authorization: `Bearer ${token}`,
+                        },
+                        body: JSON.stringify(updates),
+                    })
+
+                    if (saveResponse.ok) {
+                        updatedCount += updates.length
+                    }
+                }
+            }
+
+            toast.success(t('success'))
+            onUpdate()
+            setSelectedIds(new Set())
+
+        } catch (error) {
+            console.error("Bulk DM find error:", error)
+            toast.error(t('error'))
+        } finally {
+            toast.dismiss(loadingToast)
+        }
+    }
+
     const handleSelectAll = () => {
         const allIds = filteredAndSorted.map(c => c.id)
         setSelectedIds(new Set(allIds))
@@ -341,6 +428,14 @@ export function ReadyCompaniesTable({
                                                     <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                                                         {t('bulkActions')} ({selectedIds.size})
                                                     </div>
+                                                    <DropdownMenuItem
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            handleBulkFindDecisionMaker()
+                                                        }}
+                                                    >
+                                                        {t('findDecisionMaker')}
+                                                    </DropdownMenuItem>
                                                     <DropdownMenuItem
                                                         onClick={(e) => {
                                                             e.stopPropagation()

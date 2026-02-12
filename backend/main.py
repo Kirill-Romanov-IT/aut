@@ -543,3 +543,53 @@ async def estimate_headcount_bulk_ep(body: BulkHeadcountRequest, current_user: m
     except Exception as e:
         print(f"Error in estimate_headcount_bulk endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.patch("/ready-companies/bulk-enrich")
+async def bulk_enrich_ready_companies(updates: list[models.ReadyCompanyEnrich], current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            for update in updates:
+                # Build dynamic update query based on provided fields
+                update_fields = []
+                values = []
+                
+                if update.name is not None:
+                    update_fields.append("name = %s")
+                    values.append(update.name)
+                
+                if update.sur_name is not None:
+                    update_fields.append("sur_name = %s")
+                    values.append(update.sur_name)
+                    
+                if update.phone_number is not None:
+                    update_fields.append("phone_number = %s")
+                    values.append(update.phone_number)
+                
+                if not update_fields:
+                    continue
+                    
+                values.append(update.id)
+                query = f"UPDATE ready_companies SET {', '.join(update_fields)} WHERE id = %s"
+                
+                cur.execute(query, values)
+                
+            conn.commit()
+            return {"message": f"Successfully enriched {len(updates)} ready companies"}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.post("/ready-companies/ai-bulk-find-decision-maker")
+async def find_decision_maker_bulk_ep(body: models.BulkDecisionMakerRequest, current_user: models.User = Depends(get_current_user)):
+    try:
+        from ai_service import find_decision_maker_bulk
+        # Convert Pydantic models to dicts
+        companies_dicts = [c.model_dump() for c in body.companies]
+        results = find_decision_maker_bulk(companies_dicts)
+        return results
+    except Exception as e:
+        print(f"Error in find_decision_maker_bulk endpoint: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

@@ -55,6 +55,7 @@ export const translations = {
         moveToReady: "Move to Ready",
         enrichData: "Enrich Data",
         fillEmployeeCount: "Find information about employees",
+        findDecisionMaker: "Find Decision Maker",
         moveToKanban: "Move to Kanban",
 
         // Company Fields
@@ -212,6 +213,7 @@ export const translations = {
         moveToReady: "В список готовых",
         enrichData: "Обогатить данные",
         fillEmployeeCount: "Найти информацию о сотрудниках",
+        findDecisionMaker: "Найти ЛПР",
         moveToKanban: "Добавить в Kanban",
 
         // Company Fields
