@@ -307,7 +307,7 @@ export function ReadyCompaniesTable({
                                 </div>
                             </TableHead>
                             <TableHead className="text-right w-[60px]">
-                                <div className="flex items-center justify-end gap-2">
+                                <div className="flex items-center gap-2">
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
                                             <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted" onClick={(e) => e.stopPropagation()}>
@@ -389,7 +389,7 @@ export function ReadyCompaniesTable({
                                     <TableCell>{company.sur_name || t('notAvailable')}</TableCell>
                                     <TableCell>{company.phone_number || t('notAvailable')}</TableCell>
                                     <TableCell className="text-right">
-                                        <div className="flex items-center justify-end">
+                                        <div className="flex items-center">
                                             <Checkbox
                                                 checked={selectedIds.has(company.id)}
                                                 onCheckedChange={(checked) => {

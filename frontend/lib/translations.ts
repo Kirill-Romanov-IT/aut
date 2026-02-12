@@ -43,6 +43,7 @@ export const translations = {
         noData: "No data available",
         success: "Success",
         error: "Error",
+        notAvailable: "No value specified",
 
         // Tables & Bulk Actions
         allCompanies: "All Companies",
@@ -199,6 +200,7 @@ export const translations = {
         noData: "Нет данных",
         success: "Успешно",
         error: "Ошибка",
+        notAvailable: "Значение не указано",
 
         // Tables & Bulk Actions
         allCompanies: "Все компании",
