@@ -94,7 +94,7 @@ const MOCK_COMPANIES: Company[] = [
 
 // --- Components ---
 
-function SortableCompanyCard({ company, onClick }: { company: Company, onClick: (c: Company) => void }) {
+function SortableCompanyCard({ company, onClick, onDelete }: { company: Company, onClick: (c: Company) => void, onDelete: (id: string | number) => void }) {
     const { t } = useLanguage()
     const {
         attributes,
@@ -137,7 +137,16 @@ function SortableCompanyCard({ company, onClick }: { company: Company, onClick: 
                 <CardHeader className="p-4 pb-2">
                     <div className="flex justify-between items-start">
                         <CardTitle className="text-sm font-medium">{company.name}</CardTitle>
-                        <Badge variant="outline" className="text-[10px] whitespace-nowrap">{company.employees} {t('employees')}</Badge>
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                onDelete(company.id)
+                            }}
+                            className="p-1.5 rounded-md hover:bg-red-50 text-red-500 transition-all opacity-0 group-hover:opacity-100 hover:scale-110 active:scale-95"
+                            title={t('delete')}
+                        >
+                            <Trash2Icon className="h-4 w-4" />
+                        </button>
                     </div>
                     <CardDescription className="text-[10px] line-clamp-1">{company.location}</CardDescription>
                 </CardHeader>
@@ -158,7 +167,7 @@ function SortableCompanyCard({ company, onClick }: { company: Company, onClick: 
     )
 }
 
-function KanbanColumn({ column, companies, onCardClick }: { column: Column, companies: Company[], onCardClick: (c: Company) => void }) {
+function KanbanColumn({ column, companies, onCardClick, onCardDelete }: { column: Column, companies: Company[], onCardClick: (c: Company) => void, onCardDelete: (id: string | number) => void }) {
     const { setNodeRef } = useDroppable({
         id: column.id,
         data: {
@@ -177,7 +186,7 @@ function KanbanColumn({ column, companies, onCardClick }: { column: Column, comp
                 <SortableContext items={companies.map(c => c.id)} strategy={verticalListSortingStrategy}>
                     <div ref={setNodeRef} className="flex flex-col gap-3 min-h-[150px] p-1">
                         {companies.map((company) => (
-                            <SortableCompanyCard key={company.id} company={company} onClick={onCardClick} />
+                            <SortableCompanyCard key={company.id} company={company} onClick={onCardClick} onDelete={onCardDelete} />
                         ))}
                     </div>
                 </SortableContext>
@@ -193,7 +202,7 @@ function DragOverlayCard({ company }: { company: Company }) {
             <CardHeader className="p-4 pb-2">
                 <div className="flex justify-between items-start">
                     <CardTitle className="text-sm font-medium">{company.name}</CardTitle>
-                    <Badge variant="outline" className="text-[10px] whitespace-nowrap">{company.employees} {t('employees')}</Badge>
+
                 </div>
                 <CardDescription className="text-[10px] line-clamp-1">{company.location}</CardDescription>
             </CardHeader>
@@ -238,24 +247,25 @@ export function LifecycleKanban() {
         if (saved) {
             try {
                 const parsed = JSON.parse(saved)
-                // If the user deleted everything and wants them back, or if it's the first load
-                if (parsed.length === 0) {
-                    const restored = MOCK_COMPANIES.map(c => ({
-                        ...c,
-                        scheduledAt: generateRandomCallDate()
-                    }))
-                    setCompanies(restored)
-                } else {
-                    // Ensure all loaded companies have a scheduledAt date and it's ISO
-                    const validated = parsed.map((c: any) => ({
-                        ...c,
-                        scheduledAt: (c.scheduledAt && c.scheduledAt.includes('T')) ? c.scheduledAt : generateRandomCallDate()
-                    }))
-                    setCompanies(validated)
-                }
+                // Ensure all loaded companies have a scheduledAt date and it's ISO, and IDs are strings
+                const validated = parsed.map((c: any) => ({
+                    ...c,
+                    id: String(c.id),
+                    scheduledAt: (c.scheduledAt && c.scheduledAt.includes('T')) ? c.scheduledAt : generateRandomCallDate()
+                }))
+                setCompanies(validated)
             } catch (e) {
                 console.error("Failed to load kanban state", e)
+                // Fallback to mocks if corrupt
+                setCompanies(MOCK_COMPANIES)
             }
+        } else {
+            // First load ever (no storage), load mocks
+            const restored = MOCK_COMPANIES.map(c => ({
+                ...c,
+                scheduledAt: generateRandomCallDate()
+            }))
+            setCompanies(restored)
         }
         setMounted(true)
     }, [])
@@ -313,10 +323,12 @@ export function LifecycleKanban() {
         toast.success(t('success'))
     }
 
-    const handleDelete = (id: string) => {
+    const handleDelete = (id: string | number) => {
         if (window.confirm(t('confirmDelete'))) {
-            setCompanies(prev => prev.filter(c => c.id !== id))
+            setCompanies(prev => prev.filter(c => String(c.id) !== String(id)))
+            return true
         }
+        return false
     }
 
     const sensors = useSensors(
@@ -428,6 +440,7 @@ export function LifecycleKanban() {
                             column={col}
                             companies={companies.filter(c => c.status === col.id)}
                             onCardClick={(c) => setSelectedCompany(c)}
+                            onCardDelete={handleDelete}
                         />
                     ))}
                 </div>
@@ -451,9 +464,11 @@ export function LifecycleKanban() {
                                 onClick={(e) => {
                                     e.stopPropagation()
                                     if (selectedCompany) {
-                                        handleDelete(selectedCompany.id)
-                                        setSelectedCompany(null)
-                                        setIsEditingTime(false)
+                                        const deleted = handleDelete(selectedCompany.id)
+                                        if (deleted) {
+                                            setSelectedCompany(null)
+                                            setIsEditingTime(false)
+                                        }
                                     }
                                 }}
                                 className="absolute left-4 top-4 p-2 rounded-full hover:bg-red-50 text-red-500 transition-all z-10 hover:scale-110 active:scale-95"
