@@ -106,6 +106,32 @@ export function ReadyCompaniesTable({
     const handleBulkMoveToKanban = async () => {
         if (selectedIds.size === 0) return
 
+        // 1. Client-side validation: match companies by ID (handling string/number mismatches)
+        const selectedCompanies = companies.filter(c =>
+            Array.from(selectedIds).some(id => String(id) === String(c.id))
+        )
+
+        if (selectedCompanies.length === 0) {
+            toast.error("No companies found to move. Please try selecting them again.")
+            return
+        }
+
+        for (const company of selectedCompanies) {
+            const missingFields: string[] = []
+            if (!company.company_name?.trim()) missingFields.push("Company Name")
+            if (!company.location?.trim()) missingFields.push("Location")
+            if (!company.name?.trim()) missingFields.push("Contact Name")
+            if (!company.sur_name?.trim()) missingFields.push("Surname")
+            if (!company.phone_number?.trim()) missingFields.push("Phone Number")
+
+            if (missingFields.length > 0) {
+                toast.error(`I cannot transfer "${company.company_name || 'this company'}" because the following is not filled: ${missingFields.join(", ")}. Please fill them.`, {
+                    duration: 5000,
+                })
+                return
+            }
+        }
+
         const loadingToast = toast.loading(`Moving ${selectedIds.size} companies to Kanban...`)
         try {
             const token = localStorage.getItem("token")
@@ -114,24 +140,27 @@ export function ReadyCompaniesTable({
                 return
             }
 
+            // Convert to numbers for the backend
+            const idArray = Array.from(selectedIds).map(id => Number(id)).filter(id => !isNaN(id))
+
             const response = await fetch("http://localhost:8000/ready-companies/bulk-move-to-kanban", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify(Array.from(selectedIds)),
+                body: JSON.stringify(idArray),
             })
 
-            if (response.ok) {
-                const movedCompanies = await response.json()
+            const data = await response.json()
 
+            if (response.ok) {
                 // Sync with Kanban localStorage
                 const kanbanData = localStorage.getItem("lifecycle-kanban-state")
                 const currentKanban = kanbanData ? JSON.parse(kanbanData) : []
 
-                const newKanbanCompanies = movedCompanies.map((comp: any) => ({
-                    id: comp.id.toString(),
+                const newKanbanCompanies = data.map((comp: any) => ({
+                    id: String(comp.id),
                     name: comp.name,
                     location: comp.location || "",
                     employees: comp.employees || 0,
@@ -141,20 +170,21 @@ export function ReadyCompaniesTable({
 
                 localStorage.setItem("lifecycle-kanban-state", JSON.stringify([...currentKanban, ...newKanbanCompanies]))
 
-                toast.success(`Successfully moved ${selectedIds.size} companies to Kanban`)
+                toast.success(`Successfully moved ${data.length} companies to Kanban`)
                 setSelectedIds(new Set())
                 onUpdate()
             } else {
-                const error = await response.json()
-                toast.error(error.detail || "Failed to move companies")
+                toast.error(data.detail || "Failed to move companies")
             }
         } catch (error) {
             console.error("Bulk move error:", error)
-            toast.error("An error occurred")
+            toast.error("An error occurred during transfer")
         } finally {
             toast.dismiss(loadingToast)
         }
     }
+
+
 
     const handleBulkDelete = async () => {
         if (selectedIds.size === 0) return

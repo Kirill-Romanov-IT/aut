@@ -386,6 +386,20 @@ async def move_to_kanban(company_id: int, current_user: models.User = Depends(ge
             if not ready_comp:
                 raise HTTPException(status_code=404, detail="Ready company not found")
             
+            # Validation: Check if all fields are filled
+            missing_fields = []
+            if not ready_comp.get('company_name'): missing_fields.append("Company Name")
+            if not ready_comp.get('location'): missing_fields.append("Location")
+            if not ready_comp.get('name'): missing_fields.append("Contact Name")
+            if not ready_comp.get('sur_name'): missing_fields.append("Surname")
+            if not ready_comp.get('phone_number'): missing_fields.append("Phone Number")
+            
+            if missing_fields:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"I cannot transfer because the following fields are not filled: {', '.join(missing_fields)}"
+                )
+            
             # 2. Insert into companies (with status='new')
             cur.execute(
                 """
@@ -423,6 +437,20 @@ async def bulk_move_to_kanban(company_ids: list[int], current_user: models.User 
                 ready_comp = cur.fetchone()
                 if not ready_comp:
                     continue
+                
+                # Validation: Check if all fields are filled
+                missing_fields = []
+                if not ready_comp.get('company_name'): missing_fields.append("Company Name")
+                if not ready_comp.get('location'): missing_fields.append("Location")
+                if not ready_comp.get('name'): missing_fields.append("Contact Name")
+                if not ready_comp.get('sur_name'): missing_fields.append("Surname")
+                if not ready_comp.get('phone_number'): missing_fields.append("Phone Number")
+                
+                if missing_fields:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"I cannot transfer because the following fields are not filled: {', '.join(missing_fields)}"
+                    )
                 
                 # 2. Insert into companies (with status='new')
                 cur.execute(
