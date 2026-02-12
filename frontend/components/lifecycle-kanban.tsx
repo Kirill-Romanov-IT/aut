@@ -58,15 +58,15 @@ const formatCallDate = (isoString: string) => {
     if (!isoString) return ""
     const date = new Date(isoString)
     const months = [
-        "января", "февраля", "марта", "апреля", "мая", "июня",
-        "июля", "августа", "сентября", "октября", "ноября", "декабря"
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
     ]
     const day = date.getDate()
     const month = months[date.getMonth()]
     const hour = date.getHours().toString().padStart(2, '0')
     const minute = date.getMinutes().toString().padStart(2, '0')
 
-    return `${day} ${month} в ${hour}:${minute}`
+    return `${month} ${day} at ${hour}:${minute}`
 }
 
 const generateRandomCallDate = () => {
@@ -78,7 +78,7 @@ const generateRandomCallDate = () => {
 
 // --- Mock Data ---
 const MOCK_COMPANIES: Company[] = [
-    { id: "1", name: "Владислав Сайко", location: "Moscow", employees: 120, status: "not-responding", scheduledAt: generateRandomCallDate() },
+    { id: "1", name: "Vladislav Sayko", location: "Moscow", employees: 120, status: "not-responding", scheduledAt: generateRandomCallDate() },
     { id: "2", name: "Global Solution", location: "St. Petersburg", employees: 45, status: "ivr", scheduledAt: generateRandomCallDate() },
     { id: "3", name: "Tech Innovators", location: "Kazan", employees: 200, status: "hang-up", scheduledAt: generateRandomCallDate() },
     { id: "4", name: "SoftServe", location: "Novosibirsk", employees: 15, status: "dm-found-call-time", scheduledAt: generateRandomCallDate() },
@@ -248,10 +248,10 @@ export function LifecycleKanban() {
     )
 
     const columns: Column[] = [
-        { id: "not-responding", title: "Не отвечает" },
+        { id: "not-responding", title: "No Answer" },
         { id: "ivr", title: "IVR" },
-        { id: "hang-up", title: "Дозванились но бросает трубку" },
-        { id: "dm-found-call-time", title: "Выяснили кто принимает решение - звонить по времени" }
+        { id: "hang-up", title: "Reached but Hangs up" },
+        { id: "dm-found-call-time", title: "Decision Maker Found - Call at Time" }
     ]
 
     const handleDragStart = (event: DragStartEvent) => {
@@ -356,14 +356,14 @@ export function LifecycleKanban() {
                         <div className="space-y-2">
                             <DialogTitle className="text-xl font-bold tracking-tight">{selectedCompany?.name}</DialogTitle>
                             <DialogDescription className="sr-only">
-                                Детальная информация о компании {selectedCompany?.name}
+                                Detailed information about {selectedCompany?.name}
                             </DialogDescription>
                             <div className="flex items-center justify-center gap-2">
                                 <Badge variant="secondary" className="px-3 py-1 rounded-full text-[10px] font-medium uppercase tracking-wider">
-                                    {selectedCompany?.status === 'not-responding' && "Не отвечает"}
+                                    {selectedCompany?.status === 'not-responding' && "No Answer"}
                                     {selectedCompany?.status === 'ivr' && "IVR"}
-                                    {selectedCompany?.status === 'hang-up' && "Сброс трубки"}
-                                    {selectedCompany?.status === 'dm-found-call-time' && "Найден ЛПР"}
+                                    {selectedCompany?.status === 'hang-up' && "Hang Up"}
+                                    {selectedCompany?.status === 'dm-found-call-time' && "DM Found"}
                                 </Badge>
                             </div>
                         </div>
@@ -372,7 +372,7 @@ export function LifecycleKanban() {
                     <div className="p-8 space-y-6">
                         <div className="space-y-3">
                             <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
-                                Запланировано на:
+                                Scheduled for:
                             </label>
                             <div className="flex items-center gap-3 p-4 rounded-xl bg-primary/5 border border-primary/10">
                                 <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
@@ -388,7 +388,7 @@ export function LifecycleKanban() {
                             onClick={() => setSelectedCompany(null)}
                             className="w-full py-3 px-4 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90 transition-opacity active:scale-[0.98]"
                         >
-                            Закрыть
+                            Close
                         </button>
                     </div>
                 </DialogContent>

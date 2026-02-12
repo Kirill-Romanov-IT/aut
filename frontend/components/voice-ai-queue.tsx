@@ -22,23 +22,23 @@ const formatCallDate = (isoString: string) => {
     if (!isoString) return ""
     const date = new Date(isoString)
     const months = [
-        "января", "февраля", "марта", "апреля", "мая", "июня",
-        "июля", "августа", "сентября", "октября", "ноября", "декабря"
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+        "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
     ]
     const day = date.getDate()
     const month = months[date.getMonth()]
     const hour = date.getHours().toString().padStart(2, '0')
     const minute = date.getMinutes().toString().padStart(2, '0')
 
-    return `${day} ${month} в ${hour}:${minute}`
+    return `${month} ${day} at ${hour}:${minute}`
 }
 
 const getStatusBadge = (status: CompanyStatus) => {
     switch (status) {
-        case "not-responding": return <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">Не отвечает</Badge>
+        case "not-responding": return <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">No Answer</Badge>
         case "ivr": return <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">IVR</Badge>
-        case "hang-up": return <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Сброс</Badge>
-        case "dm-found-call-time": return <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">ЛПР найден</Badge>
+        case "hang-up": return <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Hang Up</Badge>
+        case "dm-found-call-time": return <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">DM Found</Badge>
         default: return <Badge variant="outline">{status}</Badge>
     }
 }
@@ -76,14 +76,14 @@ export function VoiceAIQueue() {
     return (
         <Card className="border-none shadow-none bg-transparent">
             <CardHeader className="px-0 pt-0 pb-6">
-                <CardTitle className="text-2xl font-bold tracking-tight">Очередь звонков Voice AI</CardTitle>
-                <p className="text-sm text-muted-foreground">Ближайшие звонки в начале списка</p>
+                <CardTitle className="text-2xl font-bold tracking-tight">Voice AI Call Queue</CardTitle>
+                <p className="text-sm text-muted-foreground">Upcoming calls at the top</p>
             </CardHeader>
             <CardContent className="px-0">
                 <div className="space-y-4">
                     {companies.length === 0 ? (
                         <div className="text-center py-12 bg-muted/20 rounded-2xl border-2 border-dashed border-muted">
-                            <p className="text-muted-foreground">Очередь пуста. Обновите данные на доске жизненного цикла.</p>
+                            <p className="text-muted-foreground">Queue is empty. Update data on the Lifecycle board.</p>
                         </div>
                     ) : (
                         companies.map((company, index) => (
@@ -105,7 +105,7 @@ export function VoiceAIQueue() {
                                             </div>
                                             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                                 <UserIcon className="h-3 w-3" />
-                                                {company.employees} сотр.
+                                                {company.employees} emp.
                                             </div>
                                             {getStatusBadge(company.status)}
                                         </div>
@@ -119,7 +119,7 @@ export function VoiceAIQueue() {
                                             <span>{formatCallDate(company.scheduledAt)}</span>
                                         </div>
                                         <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-medium mt-0.5">
-                                            Запланировано
+                                            Scheduled
                                         </span>
                                     </div>
                                     <button className="h-10 w-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-md">
