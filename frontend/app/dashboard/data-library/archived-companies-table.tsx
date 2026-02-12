@@ -132,6 +132,38 @@ export function ArchivedCompaniesTable({
         }
     }
 
+    const handleBulkRestore = async () => {
+        if (selectedIds.size === 0) return
+
+        try {
+            const token = localStorage.getItem("token")
+            if (!token) {
+                router.push("/")
+                return
+            }
+
+            const response = await fetch("http://localhost:8000/archived-companies/bulk-restore", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(Array.from(selectedIds)),
+            })
+
+            if (response.ok) {
+                toast.success(t('success'))
+                setSelectedIds(new Set())
+                onUpdate()
+            } else {
+                toast.error(t('error'))
+            }
+        } catch (error) {
+            console.error("Archive restore error:", error)
+            toast.error(t('error'))
+        }
+    }
+
     return (
         <div className="flex flex-col gap-4">
             <div className="rounded-md border bg-card text-card-foreground shadow-sm overflow-hidden min-h-[300px]">
@@ -225,6 +257,13 @@ export function ArchivedCompaniesTable({
                                         </DropdownMenuItem>
                                         {selectedIds.size > 0 && (
                                             <>
+                                                <div className="h-px bg-muted my-1" />
+                                                <DropdownMenuItem
+                                                    className="cursor-pointer"
+                                                    onClick={handleBulkRestore}
+                                                >
+                                                    <span>{t('moveToKanban')}</span>
+                                                </DropdownMenuItem>
                                                 <div className="h-px bg-muted my-1" />
                                                 <DropdownMenuItem
                                                     className="text-destructive focus:text-destructive cursor-pointer"

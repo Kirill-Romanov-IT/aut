@@ -258,6 +258,33 @@ async def update_company(company_id: int, company_update: models.CompanyCreate, 
     finally:
         conn.close()
 
+@app.patch("/companies/{company_id}/status", response_model=models.Company)
+async def update_company_status(company_id: int, status_update: models.CompanyStatusUpdate, current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE companies 
+                SET status = %s
+                WHERE id = %s
+                RETURNING *
+                """,
+                (status_update.status, company_id)
+            )
+            updated_company = cur.fetchone()
+            if not updated_company:
+                raise HTTPException(status_code=404, detail="Company not found")
+            conn.commit()
+            return models.Company(**updated_company)
+    except Exception as e:
+        conn.rollback()
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
 
 @app.post("/companies/bulk-delete")
 async def bulk_delete_companies(ids: list[int | str], current_user: models.User = Depends(get_current_user)):
@@ -676,24 +703,52 @@ async def archive_lifecycle_company(company_id: int, current_user: models.User =
         conn.close()
 
 @app.post("/archived-companies/bulk-delete")
-async def bulk_delete_archived_companies(ids: list[int | str], current_user: models.User = Depends(get_current_user)):
+async def bulk_delete_archived_companies(company_ids: list[int], current_user: models.User = Depends(get_current_user)):
     conn = db.get_db_connection()
     try:
         with conn.cursor() as cur:
-            int_ids = []
-            for id_val in ids:
-                try:
-                    int_ids.append(int(id_val))
-                except (ValueError, TypeError):
-                    continue
+            if not company_ids:
+                return {"message": "No IDs provided", "deleted_count": 0}
             
-            if not int_ids:
-                return {"message": "No valid IDs provided", "deleted_count": 0}
-            
-            cur.execute("DELETE FROM archived_companies WHERE id = ANY(%s)", (int_ids,))
+            cur.execute("DELETE FROM archived_companies WHERE id = ANY(%s)", (company_ids,))
             deleted_count = cur.rowcount
             conn.commit()
             return {"message": f"Successfully deleted {deleted_count} archived companies", "deleted_count": deleted_count}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.post("/archived-companies/bulk-restore")
+async def bulk_restore_archived_companies(company_ids: list[int], current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            if not company_ids:
+                return {"message": "No IDs provided", "restored_count": 0}
+            
+            # Get data from archived_companies
+            cur.execute(
+                "SELECT company_name, location, name, sur_name, phone_number FROM archived_companies WHERE id = ANY(%s)",
+                (company_ids,)
+            )
+            companies = cur.fetchall()
+            
+            restored_count = 0
+            for company in companies:
+                # Insert into companies (Kanban) with 'new' status
+                cur.execute(
+                    "INSERT INTO companies (name, location, contact_name, contact_surname, contact_phone, status) VALUES (%s, %s, %s, %s, %s, 'new')",
+                    (company['company_name'], company['location'], company['name'], company['sur_name'], company['phone_number'])
+                )
+                restored_count += 1
+            
+            # Delete from archived_companies
+            cur.execute("DELETE FROM archived_companies WHERE id = ANY(%s)", (company_ids,))
+            
+            conn.commit()
+            return {"message": f"Successfully restored {restored_count} companies to Kanban", "restored_count": restored_count}
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))

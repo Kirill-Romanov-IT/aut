@@ -51,6 +51,9 @@ class Company(BaseModel):
     contact_phone: Optional[str] = None
     created_at: Optional[datetime] = None
 
+class CompanyStatusUpdate(BaseModel):
+    status: str
+
 class CompanyEnrich(BaseModel):
     id: int
     employees: int

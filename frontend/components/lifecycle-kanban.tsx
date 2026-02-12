@@ -241,41 +241,40 @@ export function LifecycleKanban() {
         { id: "dm-found-call-time", title: t('decisionMakerFound') }
     ]
 
-    // Hydration fix & LocalStorage Load
-    React.useEffect(() => {
-        const saved = localStorage.getItem(KANBAN_STORAGE_KEY)
-        if (saved) {
-            try {
-                const parsed = JSON.parse(saved)
-                // Ensure all loaded companies have a scheduledAt date and it's ISO, and IDs are strings
-                const validated = parsed.map((c: any) => ({
-                    ...c,
+    const fetchCompanies = async () => {
+        try {
+            const token = localStorage.getItem("token")
+            const response = await fetch("http://localhost:8000/companies", {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            })
+            if (response.ok) {
+                const data = await response.json()
+                const formattedData: Company[] = data.map((c: any) => ({
                     id: String(c.id),
-                    scheduledAt: (c.scheduledAt && c.scheduledAt.includes('T')) ? c.scheduledAt : generateRandomCallDate()
+                    name: c.name,
+                    location: c.location,
+                    employees: c.employees,
+                    status: c.status as CompanyStatus,
+                    scheduledAt: c.scheduled_at || generateRandomCallDate(),
+                    contactName: c.contact_name,
+                    contactSurname: c.contact_surname,
+                    contactPhone: c.contact_phone,
                 }))
-                setCompanies(validated)
-            } catch (e) {
-                console.error("Failed to load kanban state", e)
-                // Fallback to mocks if corrupt
-                setCompanies(MOCK_COMPANIES)
+                setCompanies(formattedData)
             }
-        } else {
-            // First load ever (no storage), load mocks
-            const restored = MOCK_COMPANIES.map(c => ({
-                ...c,
-                scheduledAt: generateRandomCallDate()
-            }))
-            setCompanies(restored)
+        } catch (error) {
+            console.error("Failed to fetch companies:", error)
+            setCompanies(MOCK_COMPANIES)
         }
+    }
+
+    // Load from backend on mount
+    React.useEffect(() => {
+        fetchCompanies()
         setMounted(true)
     }, [])
-
-    // LocalStorage Save (Board State only)
-    React.useEffect(() => {
-        if (mounted) {
-            localStorage.setItem(KANBAN_STORAGE_KEY, JSON.stringify(companies))
-        }
-    }, [companies, mounted])
 
     const generateQueue = () => {
         localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(companies))
@@ -311,16 +310,43 @@ export function LifecycleKanban() {
         setTempValues(selectedCompany || {})
     }
 
-    const handleFieldSave = (field: keyof Company) => {
+    const handleFieldSave = async (field: keyof Company) => {
         if (!selectedCompany) return
         const newValue = tempValues[field]
 
-        setCompanies(prev => prev.map(c =>
-            c.id === selectedCompany.id ? { ...c, [field]: newValue } : c
-        ))
-        setSelectedCompany(prev => prev ? { ...prev, [field]: newValue } : null)
-        setEditingField(null)
-        toast.success(t('success'))
+        // For now, only status is persisted via a specific endpoint. 
+        // We could add a full update endpoint later.
+        // Actually, name/location/employees can be updated too.
+
+        try {
+            const token = localStorage.getItem("token")
+            const response = await fetch(`http://localhost:8000/companies/${selectedCompany.id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    name: field === 'name' ? newValue : selectedCompany.name,
+                    employees: field === 'employees' ? newValue : selectedCompany.employees,
+                    location: field === 'location' ? newValue : selectedCompany.location,
+                }),
+            })
+
+            if (response.ok) {
+                setCompanies(prev => prev.map(c =>
+                    c.id === selectedCompany.id ? { ...c, [field]: newValue } : c
+                ))
+                setSelectedCompany(prev => prev ? { ...prev, [field]: newValue } : null)
+                setEditingField(null)
+                toast.success(t('success'))
+            } else {
+                toast.error(t('error'))
+            }
+        } catch (error) {
+            console.error("Field save error:", error)
+            toast.error(t('error'))
+        }
     }
 
     const handleArchive = async (id: string | number) => {
@@ -417,7 +443,50 @@ export function LifecycleKanban() {
         }
     }
 
-    const handleDragEnd = (event: DragEndEvent) => {
+    const handleDragEnd = async (event: DragEndEvent) => {
+        const { active, over } = event
+        if (!over) {
+            setActiveId(null)
+            return
+        }
+
+        const activeId = active.id
+        const overId = over.id
+
+        const activeCompany = companies.find(c => c.id === activeId)
+        if (!activeCompany) {
+            setActiveId(null)
+            return
+        }
+
+        const overColumnId = (over.data.current?.type === 'Column' ? overId : over.data.current?.company?.status) as CompanyStatus
+
+        if (overColumnId && activeCompany.status !== overColumnId) {
+            try {
+                const token = localStorage.getItem("token")
+                const response = await fetch(`http://localhost:8000/companies/${activeId}/status`, {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({ status: overColumnId }),
+                })
+
+                if (response.ok) {
+                    toast.success(t('success'))
+                } else {
+                    // Revert if failed
+                    fetchCompanies()
+                    toast.error(t('error'))
+                }
+            } catch (error) {
+                console.error("Failed to update status:", error)
+                fetchCompanies()
+                toast.error(t('error'))
+            }
+        }
+
         setActiveId(null)
     }
 
