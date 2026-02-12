@@ -37,7 +37,7 @@ import {
 } from "@/components/ui/dialog"
 
 // --- Types ---
-type CompanyStatus = "not-responding" | "ivr" | "hang-up" | "dm-found-call-time"
+type CompanyStatus = "new" | "not-responding" | "ivr" | "hang-up" | "dm-found-call-time"
 
 type Company = {
     id: string
@@ -81,15 +81,15 @@ const generateRandomCallDate = () => {
 
 // --- Mock Data ---
 const MOCK_COMPANIES: Company[] = [
-    { id: "1", name: "Vladislav Sayko", location: "Moscow", employees: 120, status: "not-responding", scheduledAt: generateRandomCallDate() },
-    { id: "2", name: "Global Solution", location: "St. Petersburg", employees: 45, status: "ivr", scheduledAt: generateRandomCallDate() },
-    { id: "3", name: "Tech Innovators", location: "Kazan", employees: 200, status: "hang-up", scheduledAt: generateRandomCallDate() },
+    { id: "1", name: "Vladislav Sayko", location: "Moscow", employees: 120, status: "new", scheduledAt: generateRandomCallDate() },
+    { id: "2", name: "Global Solution", location: "St. Petersburg", employees: 45, status: "new", scheduledAt: generateRandomCallDate() },
+    { id: "3", name: "Tech Innovators", location: "Kazan", employees: 200, status: "ivr", scheduledAt: generateRandomCallDate() },
     { id: "4", name: "SoftServe", location: "Novosibirsk", employees: 15, status: "dm-found-call-time", scheduledAt: generateRandomCallDate() },
     { id: "5", name: "NextGen", location: "Yekaterinburg", employees: 500, status: "not-responding", scheduledAt: generateRandomCallDate() },
     { id: "6", name: "Alpha Group", location: "Samara", employees: 100, status: "ivr", scheduledAt: generateRandomCallDate() },
     { id: "7", name: "Omega Corp", location: "Omsk", employees: 50, status: "hang-up", scheduledAt: generateRandomCallDate() },
     { id: "8", name: "Delta Systems", location: "Ufa", employees: 300, status: "dm-found-call-time", scheduledAt: generateRandomCallDate() },
-    { id: "9", name: "Zeta Inc", location: "Perm", employees: 80, status: "not-responding", scheduledAt: generateRandomCallDate() },
+    { id: "9", name: "Zeta Inc", location: "Perm", employees: 80, status: "new", scheduledAt: generateRandomCallDate() },
     { id: "10", name: "Beta LLC", location: "Voronezh", employees: 60, status: "ivr", scheduledAt: generateRandomCallDate() },
 ]
 
@@ -287,6 +287,7 @@ export function LifecycleKanban() {
     )
 
     const columns: Column[] = [
+        { id: "new", title: "New Companies" },
         { id: "not-responding", title: "No Answer" },
         { id: "ivr", title: "IVR" },
         { id: "hang-up", title: "Reached but Hangs up" },
@@ -384,7 +385,7 @@ export function LifecycleKanban() {
                 onDragOver={handleDragOver}
                 onDragEnd={handleDragEnd}
             >
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 h-full items-start animate-in fade-in duration-500">
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 h-full items-start animate-in fade-in duration-500">
                     {columns.map(col => (
                         <KanbanColumn
                             key={col.id}
@@ -434,6 +435,7 @@ export function LifecycleKanban() {
                             </DialogDescription>
                             <div className="flex items-center justify-center gap-2">
                                 <Badge variant="secondary" className="px-3 py-1 rounded-full text-[10px] font-medium uppercase tracking-wider">
+                                    {selectedCompany?.status === 'new' && "New Company"}
                                     {selectedCompany?.status === 'not-responding' && "No Answer"}
                                     {selectedCompany?.status === 'ivr' && "IVR"}
                                     {selectedCompany?.status === 'hang-up' && "Hang Up"}

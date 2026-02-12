@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CalendarIcon, ClockIcon, UserIcon, MapPinIcon, MicIcon, Trash2Icon } from "lucide-react"
 
-type CompanyStatus = "not-responding" | "ivr" | "hang-up" | "dm-found-call-time"
+type CompanyStatus = "new" | "not-responding" | "ivr" | "hang-up" | "dm-found-call-time"
 
 type Company = {
     id: string
@@ -36,6 +36,7 @@ const formatCallDate = (isoString: string) => {
 
 const getStatusBadge = (status: CompanyStatus) => {
     switch (status) {
+        case "new": return <Badge variant="outline" className="border-purple-200 bg-purple-50 text-purple-700">New</Badge>
         case "not-responding": return <Badge variant="outline" className="border-red-200 bg-red-50 text-red-700">No Answer</Badge>
         case "ivr": return <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">IVR</Badge>
         case "hang-up": return <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">Hang Up</Badge>
