@@ -1,4 +1,8 @@
-from backend.db import get_db_connection
+import os
+from dotenv import load_dotenv
+from db import get_db_connection
+
+load_dotenv()
 
 def check_db():
     conn = get_db_connection()
