@@ -189,6 +189,16 @@ export function ReadyCompaniesTable({
 
 
 
+    const handleSelectAll = () => {
+        const allIds = filteredAndSorted.map(c => c.id)
+        setSelectedIds(new Set(allIds))
+        toast.info(`Selected all ${allIds.length} filtered companies`)
+    }
+
+    const handleDeselectAll = () => {
+        setSelectedIds(new Set())
+    }
+
     const handleBulkDelete = async () => {
         if (selectedIds.size === 0) return
 
@@ -303,35 +313,61 @@ export function ReadyCompaniesTable({
                             </TableHead>
                             <TableHead className="text-right w-[60px]">
                                 <div className="flex items-center justify-end gap-2">
-                                    {selectedIds.size > 0 && (
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted" onClick={(e) => e.stopPropagation()}>
-                                                    <MoreVertical className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuItem
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        handleBulkMoveToKanban()
-                                                    }}
-                                                >
-                                                    Add to Kanban
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem
-                                                    className="text-destructive focus:text-destructive"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        handleBulkDelete()
-                                                    }}
-                                                >
-                                                    <Trash2 className="mr-2 h-4 w-4" />
-                                                    <span>Delete Selected ({selectedIds.size})</span>
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    )}
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted" onClick={(e) => e.stopPropagation()}>
+                                                <MoreVertical className="h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-48">
+                                            <DropdownMenuItem
+                                                className="cursor-pointer"
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    handleSelectAll()
+                                                }}
+                                            >
+                                                Select All Filtered ({filteredAndSorted.length})
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem
+                                                className="cursor-pointer"
+                                                onClick={(e) => {
+                                                    e.stopPropagation()
+                                                    handleDeselectAll()
+                                                }}
+                                                disabled={selectedIds.size === 0}
+                                            >
+                                                Deselect All
+                                            </DropdownMenuItem>
+
+                                            {selectedIds.size > 0 && (
+                                                <>
+                                                    <div className="h-px bg-muted my-1" />
+                                                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                                        Bulk Actions ({selectedIds.size})
+                                                    </div>
+                                                    <DropdownMenuItem
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            handleBulkMoveToKanban()
+                                                        }}
+                                                    >
+                                                        Add to Kanban
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem
+                                                        className="text-destructive focus:text-destructive cursor-pointer"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation()
+                                                            handleBulkDelete()
+                                                        }}
+                                                    >
+                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                        <span>Delete Selected</span>
+                                                    </DropdownMenuItem>
+                                                </>
+                                            )}
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </div>
                             </TableHead>
                         </TableRow>

@@ -156,6 +156,8 @@ async def upload_companies(file: UploadFile = File(...), current_user: models.Us
                     db_field = None
                     if csv_header.lower() == "business_owner_name":
                         db_field = "name"
+                    elif csv_header.lower() == "address_state":
+                        db_field = "location"
                     else:
                         for map_header, map_field in mappings.items():
                             if map_header and map_header.lower() == csv_header.lower():

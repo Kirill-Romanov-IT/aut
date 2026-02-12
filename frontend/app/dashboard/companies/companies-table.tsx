@@ -243,6 +243,16 @@ export function CompaniesTable({
         }
     }
 
+    const handleSelectAll = () => {
+        const allIds = companies.map(c => c.id)
+        setSelectedIds(new Set(allIds))
+        toast.info(`Selected all ${allIds.length} visible companies`)
+    }
+
+    const handleDeselectAll = () => {
+        setSelectedIds(new Set())
+    }
+
     return (
         <div className="flex flex-col gap-4">
             <div className="rounded-md border bg-card text-card-foreground shadow-sm overflow-hidden min-h-[300px]">
@@ -308,45 +318,71 @@ export function CompaniesTable({
                             </TableHead>
                             <TableHead className="font-semibold text-foreground">Created At</TableHead>
                             <TableHead className="text-right w-[60px]">
-                                {selectedIds.size > 0 && (
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                                                <MoreVertical className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem
-                                                className="cursor-pointer"
-                                                onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    onEnrich()
-                                                }}
-                                            >
-                                                Enrich Data
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem
-                                                className="cursor-pointer"
-                                                onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    handleBulkReady()
-                                                }}
-                                            >
-                                                Move to Ready
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem
-                                                className="text-destructive focus:text-destructive"
-                                                onClick={(e) => {
-                                                    e.stopPropagation()
-                                                    handleBulkDelete()
-                                                }}
-                                            >
-                                                <Trash2 className="mr-2 h-4 w-4" />
-                                                <span>Delete Selected ({selectedIds.size})</span>
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                )}
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <MoreVertical className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-48">
+                                        <DropdownMenuItem
+                                            className="cursor-pointer"
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                handleSelectAll()
+                                            }}
+                                        >
+                                            Select All Visible ({companies.length})
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                            className="cursor-pointer"
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                handleDeselectAll()
+                                            }}
+                                            disabled={selectedIds.size === 0}
+                                        >
+                                            Deselect All
+                                        </DropdownMenuItem>
+
+                                        {selectedIds.size > 0 && (
+                                            <>
+                                                <div className="h-px bg-muted my-1" />
+                                                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                                    Bulk Actions ({selectedIds.size})
+                                                </div>
+                                                <DropdownMenuItem
+                                                    className="cursor-pointer"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        onEnrich()
+                                                    }}
+                                                >
+                                                    Enrich Data
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem
+                                                    className="cursor-pointer"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        handleBulkReady()
+                                                    }}
+                                                >
+                                                    Move to Ready
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem
+                                                    className="text-destructive focus:text-destructive cursor-pointer"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        handleBulkDelete()
+                                                    }}
+                                                >
+                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                    <span>Delete Selected</span>
+                                                </DropdownMenuItem>
+                                            </>
+                                        )}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </TableHead>
                         </TableRow>
                     </TableHeader>
