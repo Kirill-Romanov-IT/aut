@@ -14,6 +14,7 @@ import {
   HelpCircleIcon,
   LayoutDashboardIcon,
   ListIcon,
+  MicIcon,
   SearchIcon,
   SettingsIcon,
   UsersIcon,
@@ -61,9 +62,9 @@ const data = {
       icon: FolderIcon,
     },
     {
-      title: "Team",
+      title: "Voice AI",
       url: "/dashboard/team",
-      icon: UsersIcon,
+      icon: MicIcon,
     },
   ],
   navClouds: [
