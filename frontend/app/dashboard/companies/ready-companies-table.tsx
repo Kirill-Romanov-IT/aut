@@ -22,6 +22,8 @@ import {
 import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
 
+import { ReadyCompanyDialog } from "./ready-company-dialog"
+
 export type ReadyCompany = {
     id: number | string
     company_name: string
@@ -47,6 +49,7 @@ export function ReadyCompaniesTable({
     const [selectedIds, setSelectedIds] = React.useState<Set<number | string>>(new Set())
     const [sortConfig, setSortConfig] = React.useState<{ key: string, direction: 'asc' | 'desc' | null }>({ key: '', direction: null })
     const [filters, setFilters] = React.useState({ company_name: '', location: '', name: '', sur_name: '', phone_number: '' })
+    const [selectedDetailCompany, setSelectedDetailCompany] = React.useState<ReadyCompany | null>(null)
 
     const handleSort = (key: string) => {
         let direction: 'asc' | 'desc' | null = 'asc'
@@ -61,6 +64,15 @@ export function ReadyCompaniesTable({
     const handleFilterChange = (key: string, value: string) => {
         setFilters(prev => ({ ...prev, [key]: value }))
     }
+
+    React.useEffect(() => {
+        if (selectedDetailCompany) {
+            const updated = companies.find(c => c.id === selectedDetailCompany.id)
+            if (updated) {
+                setSelectedDetailCompany(updated)
+            }
+        }
+    }, [companies, selectedDetailCompany]) // Added selectedDetailCompany to dependencies to prevent stale closure issues
 
     const filteredAndSorted = React.useMemo(() => {
         let result = [...companies]
@@ -150,6 +162,7 @@ export function ReadyCompaniesTable({
                                             value={filters.company_name}
                                             onChange={(e) => handleFilterChange('company_name', e.target.value)}
                                             className="h-8 pl-8 text-xs bg-muted/50 border-none focus-visible:ring-1"
+                                            onClick={(e) => e.stopPropagation()}
                                         />
                                     </div>
                                 </div>
@@ -162,6 +175,7 @@ export function ReadyCompaniesTable({
                                         value={filters.location}
                                         onChange={(e) => handleFilterChange('location', e.target.value)}
                                         className="h-8 text-xs bg-muted/50 border-none focus-visible:ring-1"
+                                        onClick={(e) => e.stopPropagation()}
                                     />
                                 </div>
                             </TableHead>
@@ -173,6 +187,7 @@ export function ReadyCompaniesTable({
                                         value={filters.name}
                                         onChange={(e) => handleFilterChange('name', e.target.value)}
                                         className="h-8 text-xs bg-muted/50 border-none focus-visible:ring-1"
+                                        onClick={(e) => e.stopPropagation()}
                                     />
                                 </div>
                             </TableHead>
@@ -184,6 +199,7 @@ export function ReadyCompaniesTable({
                                         value={filters.sur_name}
                                         onChange={(e) => handleFilterChange('sur_name', e.target.value)}
                                         className="h-8 text-xs bg-muted/50 border-none focus-visible:ring-1"
+                                        onClick={(e) => e.stopPropagation()}
                                     />
                                 </div>
                             </TableHead>
@@ -195,6 +211,7 @@ export function ReadyCompaniesTable({
                                         value={filters.phone_number}
                                         onChange={(e) => handleFilterChange('phone_number', e.target.value)}
                                         className="h-8 text-xs bg-muted/50 border-none focus-visible:ring-1"
+                                        onClick={(e) => e.stopPropagation()}
                                     />
                                 </div>
                             </TableHead>
@@ -202,7 +219,7 @@ export function ReadyCompaniesTable({
                                 {selectedIds.size > 0 && (
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted" onClick={(e) => e.stopPropagation()}>
                                                 <MoreVertical className="h-4 w-4" />
                                             </Button>
                                         </DropdownMenuTrigger>
@@ -234,9 +251,13 @@ export function ReadyCompaniesTable({
                             </TableRow>
                         ) : (
                             filteredAndSorted.map((company) => (
-                                <TableRow key={company.id} className="group">
+                                <TableRow
+                                    key={company.id}
+                                    className="group cursor-pointer hover:bg-muted/50 transition-colors"
+                                    onClick={() => setSelectedDetailCompany(company)}
+                                >
                                     <TableCell className="font-medium">{company.company_name}</TableCell>
-                                    <TableCell>{company.location}</TableCell>
+                                    <TableCell>{company.location || "-"}</TableCell>
                                     <TableCell>{company.name || '-'}</TableCell>
                                     <TableCell>{company.sur_name || '-'}</TableCell>
                                     <TableCell>{company.phone_number || '-'}</TableCell>
@@ -261,6 +282,13 @@ export function ReadyCompaniesTable({
                     </TableBody>
                 </Table>
             </div>
+
+            <ReadyCompanyDialog
+                company={selectedDetailCompany}
+                isOpen={!!selectedDetailCompany}
+                onClose={() => setSelectedDetailCompany(null)}
+                onUpdate={onUpdate}
+            />
         </div>
     )
 }

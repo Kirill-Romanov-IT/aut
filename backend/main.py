@@ -347,3 +347,30 @@ async def bulk_delete_ready_companies(ids: list[int | str], current_user: models
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+@app.put("/ready-companies/{company_id}", response_model=models.ReadyCompany)
+async def update_ready_company(company_id: int, company_update: models.ReadyCompanyCreate, current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE ready_companies 
+                SET company_name = %s, location = %s, name = %s, sur_name = %s, phone_number = %s
+                WHERE id = %s
+                RETURNING *
+                """,
+                (company_update.company_name, company_update.location, company_update.name, 
+                 company_update.sur_name, company_update.phone_number, company_id)
+            )
+            updated_company = cur.fetchone()
+            if not updated_company:
+                raise HTTPException(status_code=404, detail="Ready company not found")
+            conn.commit()
+            return models.ReadyCompany(**updated_company)
+    except Exception as e:
+        conn.rollback()
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
