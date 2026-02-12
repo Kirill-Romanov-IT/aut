@@ -56,6 +56,13 @@ export const translations = {
         enrichData: "Enrich Data",
         fillEmployeeCount: "Find information about employees",
         findDecisionMaker: "Find Decision Maker",
+        archive: "Archive",
+        archivedSuccessfully: "Archived successfully",
+        sendToArchive: "Send to Archive",
+        archiveTitle: "Archive",
+        archiveDescription: "Manage your archived companies and history here.",
+        archivedAt: "Archived At",
+        confirmArchive: "Are you sure you want to archive this company?",
         moveToKanban: "Move to Kanban",
 
         // Company Fields
@@ -214,7 +221,14 @@ export const translations = {
         enrichData: "Обогатить данные",
         fillEmployeeCount: "Найти информацию о сотрудниках",
         findDecisionMaker: "Найти ЛПР",
-        moveToKanban: "Добавить в Kanban",
+        archive: "Архив",
+        archivedSuccessfully: "Успешно архивировано",
+        sendToArchive: "Отправить в архив",
+        archiveTitle: "Архив",
+        archiveDescription: "Управляйте архивными компаниями и историей здесь.",
+        archivedAt: "Архивировано",
+        confirmArchive: "Вы уверены, что хотите архивировать эту компанию?",
+        moveToKanban: "Переместить в Канбан",
 
         // Company Fields
         companyName: "Название компании",

@@ -38,6 +38,19 @@ def init_db():
                 );
             """)
 
+            # Create archived_companies table
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS archived_companies (
+                    id SERIAL PRIMARY KEY,
+                    company_name VARCHAR(255) NOT NULL,
+                    location VARCHAR(255),
+                    name VARCHAR(255),
+                    sur_name VARCHAR(255),
+                    phone_number VARCHAR(255),
+                    archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
+
             # Ensure columns exist for existing tables
             try:
                 cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS description TEXT;")

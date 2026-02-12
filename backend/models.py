@@ -84,3 +84,19 @@ class DecisionMakerRequestItem(BaseModel):
 
 class BulkDecisionMakerRequest(BaseModel):
     companies: list[DecisionMakerRequestItem]
+
+class ArchivedCompanyCreate(BaseModel):
+    company_name: str
+    location: Optional[str] = None
+    name: Optional[str] = None
+    sur_name: Optional[str] = None
+    phone_number: Optional[str] = None
+
+class ArchivedCompany(BaseModel):
+    id: int
+    company_name: str
+    location: Optional[str]
+    name: Optional[str]
+    sur_name: Optional[str]
+    phone_number: Optional[str]
+    archived_at: Optional[datetime] = None

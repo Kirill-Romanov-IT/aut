@@ -593,3 +593,109 @@ async def find_decision_maker_bulk_ep(body: models.BulkDecisionMakerRequest, cur
     except Exception as e:
         print(f"Error in find_decision_maker_bulk endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# --- Archived Companies ---
+
+@app.get("/archived-companies", response_model=list[models.ArchivedCompany])
+async def get_archived_companies(current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM archived_companies ORDER BY archived_at DESC")
+            archived = cur.fetchall()
+            return [models.ArchivedCompany(**a) for a in archived]
+    finally:
+        conn.close()
+
+@app.post("/ready-companies/{company_id}/archive", response_model=models.ArchivedCompany)
+async def archive_ready_company(company_id: int, current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            # 1. Fetch from ready_companies
+            cur.execute("SELECT * FROM ready_companies WHERE id = %s", (company_id,))
+            ready_comp = cur.fetchone()
+            if not ready_comp:
+                raise HTTPException(status_code=404, detail="Ready company not found")
+            
+            # 2. Insert into archived_companies
+            cur.execute(
+                """
+                INSERT INTO archived_companies (company_name, location, name, sur_name, phone_number)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING *
+                """,
+                (ready_comp['company_name'], ready_comp['location'], ready_comp['name'], 
+                 ready_comp['sur_name'], ready_comp['phone_number'])
+            )
+            archived_company = cur.fetchone()
+            
+            # 3. Delete from ready_companies
+            cur.execute("DELETE FROM ready_companies WHERE id = %s", (company_id,))
+            
+            conn.commit()
+            return models.ArchivedCompany(**archived_company)
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.post("/companies/{company_id}/archive", response_model=models.ArchivedCompany)
+async def archive_lifecycle_company(company_id: int, current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            # 1. Fetch from companies
+            cur.execute("SELECT * FROM companies WHERE id = %s", (company_id,))
+            comp = cur.fetchone()
+            if not comp:
+                raise HTTPException(status_code=404, detail="Company not found")
+            
+            # 2. Insert into archived_companies
+            cur.execute(
+                """
+                INSERT INTO archived_companies (company_name, location, name, sur_name, phone_number)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING *
+                """,
+                (comp['name'], comp['location'], comp['contact_name'], 
+                 comp['contact_surname'], comp['contact_phone'])
+            )
+            archived_company = cur.fetchone()
+            
+            # 3. Delete from companies
+            cur.execute("DELETE FROM companies WHERE id = %s", (company_id,))
+            
+            conn.commit()
+            return models.ArchivedCompany(**archived_company)
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.post("/archived-companies/bulk-delete")
+async def bulk_delete_archived_companies(ids: list[int | str], current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            int_ids = []
+            for id_val in ids:
+                try:
+                    int_ids.append(int(id_val))
+                except (ValueError, TypeError):
+                    continue
+            
+            if not int_ids:
+                return {"message": "No valid IDs provided", "deleted_count": 0}
+            
+            cur.execute("DELETE FROM archived_companies WHERE id = ANY(%s)", (int_ids,))
+            deleted_count = cur.rowcount
+            conn.commit()
+            return {"message": f"Successfully deleted {deleted_count} archived companies", "deleted_count": deleted_count}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()

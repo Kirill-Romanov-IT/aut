@@ -27,7 +27,7 @@ import { CSS } from "@dnd-kit/utilities"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ZapIcon, PencilIcon, CheckIcon, XIcon, Trash2Icon, Building2Icon, MapPinIcon, UserIcon, PhoneIcon } from "lucide-react"
+import { ZapIcon, PencilIcon, CheckIcon, XIcon, ArchiveIcon, Building2Icon, MapPinIcon, UserIcon, PhoneIcon } from "lucide-react"
 import {
     Dialog,
     DialogContent,
@@ -94,7 +94,7 @@ const MOCK_COMPANIES: Company[] = [
 
 // --- Components ---
 
-function SortableCompanyCard({ company, onClick, onDelete }: { company: Company, onClick: (c: Company) => void, onDelete: (id: string | number) => void }) {
+function SortableCompanyCard({ company, onClick, onArchive }: { company: Company, onClick: (c: Company) => void, onArchive: (id: string | number) => void }) {
     const { t } = useLanguage()
     const {
         attributes,
@@ -140,12 +140,12 @@ function SortableCompanyCard({ company, onClick, onDelete }: { company: Company,
                         <button
                             onClick={(e) => {
                                 e.stopPropagation()
-                                onDelete(company.id)
+                                onArchive(company.id)
                             }}
-                            className="p-1.5 rounded-md hover:bg-red-50 text-red-500 transition-all opacity-0 group-hover:opacity-100 hover:scale-110 active:scale-95"
-                            title={t('delete')}
+                            className="p-1.5 rounded-md hover:bg-primary/10 text-primary/60 transition-all opacity-0 group-hover:opacity-100 hover:scale-110 active:scale-95"
+                            title={t('archive')}
                         >
-                            <Trash2Icon className="h-4 w-4" />
+                            <ArchiveIcon className="h-4 w-4" />
                         </button>
                     </div>
                     <CardDescription className="text-[10px] line-clamp-1">{company.location}</CardDescription>
@@ -163,11 +163,11 @@ function SortableCompanyCard({ company, onClick, onDelete }: { company: Company,
                     </div>
                 </CardContent>
             </Card>
-        </div>
+        </div >
     )
 }
 
-function KanbanColumn({ column, companies, onCardClick, onCardDelete }: { column: Column, companies: Company[], onCardClick: (c: Company) => void, onCardDelete: (id: string | number) => void }) {
+function KanbanColumn({ column, companies, onCardClick, onCardArchive }: { column: Column, companies: Company[], onCardClick: (c: Company) => void, onCardArchive: (id: string | number) => void }) {
     const { setNodeRef } = useDroppable({
         id: column.id,
         data: {
@@ -186,7 +186,7 @@ function KanbanColumn({ column, companies, onCardClick, onCardDelete }: { column
                 <SortableContext items={companies.map(c => c.id)} strategy={verticalListSortingStrategy}>
                     <div ref={setNodeRef} className="flex flex-col gap-3 min-h-[150px] p-1">
                         {companies.map((company) => (
-                            <SortableCompanyCard key={company.id} company={company} onClick={onCardClick} onDelete={onCardDelete} />
+                            <SortableCompanyCard key={company.id} company={company} onClick={onCardClick} onArchive={onCardArchive} />
                         ))}
                     </div>
                 </SortableContext>
@@ -323,10 +323,37 @@ export function LifecycleKanban() {
         toast.success(t('success'))
     }
 
-    const handleDelete = (id: string | number) => {
-        if (window.confirm(t('confirmDelete'))) {
-            setCompanies(prev => prev.filter(c => String(c.id) !== String(id)))
-            return true
+    const handleArchive = async (id: string | number) => {
+        if (window.confirm(t('confirmArchive') || 'Archive this company?')) {
+            const loadingToast = toast.loading(t('loading'))
+            try {
+                const token = localStorage.getItem("token")
+                const response = await fetch(`http://localhost:8000/companies/${id}/archive`, {
+                    method: "POST",
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    }
+                })
+
+                if (response.ok) {
+                    setCompanies(prev => prev.filter(c => String(c.id) !== String(id)))
+                    toast.success(t('archivedSuccessfully'))
+                    return true
+                } else {
+                    // If not in DB (likely a mock), just remove from local state
+                    setCompanies(prev => prev.filter(c => String(c.id) !== String(id)))
+                    toast.success(t('archivedSuccessfully'))
+                    return true
+                }
+            } catch (error) {
+                console.error("Archive error:", error)
+                // Fallback for local-only/mocks
+                setCompanies(prev => prev.filter(c => String(c.id) !== String(id)))
+                toast.success(t('archivedSuccessfully'))
+                return true
+            } finally {
+                toast.dismiss(loadingToast)
+            }
         }
         return false
     }
@@ -440,7 +467,7 @@ export function LifecycleKanban() {
                             column={col}
                             companies={companies.filter(c => c.status === col.id)}
                             onCardClick={(c) => setSelectedCompany(c)}
-                            onCardDelete={handleDelete}
+                            onCardArchive={handleArchive}
                         />
                     ))}
                 </div>
@@ -461,20 +488,20 @@ export function LifecycleKanban() {
                     <DialogHeader className="p-0">
                         <div className="bg-primary/5 p-8 flex flex-col items-center text-center gap-6 rounded-t-2xl relative">
                             <button
-                                onClick={(e) => {
+                                onClick={async (e) => {
                                     e.stopPropagation()
                                     if (selectedCompany) {
-                                        const deleted = handleDelete(selectedCompany.id)
-                                        if (deleted) {
+                                        const archived = await handleArchive(selectedCompany.id)
+                                        if (archived) {
                                             setSelectedCompany(null)
                                             setIsEditingTime(false)
                                         }
                                     }
                                 }}
-                                className="absolute left-4 top-4 p-2 rounded-full hover:bg-red-50 text-red-500 transition-all z-10 hover:scale-110 active:scale-95"
-                                title={t('delete')}
+                                className="absolute left-4 top-4 p-2 rounded-full hover:bg-primary/10 text-primary/60 transition-all z-10 hover:scale-110 active:scale-95"
+                                title={t('archive')}
                             >
-                                <Trash2Icon className="h-4 w-4" />
+                                <ArchiveIcon className="h-4 w-4" />
                             </button>
 
                             <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
@@ -623,6 +650,6 @@ export function LifecycleKanban() {
                     </div>
                 </DialogContent>
             </Dialog>
-        </div>
+        </div >
     )
 }

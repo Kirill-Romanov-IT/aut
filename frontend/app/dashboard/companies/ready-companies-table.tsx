@@ -445,6 +445,31 @@ export function ReadyCompaniesTable({
                                                         {t('moveToKanban')}
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem
+                                                        onClick={async (e) => {
+                                                            e.stopPropagation()
+                                                            if (selectedIds.size === 0) return
+                                                            const loadingToast = toast.loading(t('loading'))
+                                                            try {
+                                                                const token = localStorage.getItem("token")
+                                                                for (const id of Array.from(selectedIds)) {
+                                                                    await fetch(`http://localhost:8000/ready-companies/${id}/archive`, {
+                                                                        method: "POST",
+                                                                        headers: { Authorization: `Bearer ${token}` }
+                                                                    })
+                                                                }
+                                                                toast.success(t('archivedSuccessfully'))
+                                                                onUpdate()
+                                                                setSelectedIds(new Set())
+                                                            } catch (error) {
+                                                                toast.error(t('error'))
+                                                            } finally {
+                                                                toast.dismiss(loadingToast)
+                                                            }
+                                                        }}
+                                                    >
+                                                        {t('archive')}
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem
                                                         className="text-destructive focus:text-destructive cursor-pointer"
                                                         onClick={(e) => {
                                                             e.stopPropagation()
