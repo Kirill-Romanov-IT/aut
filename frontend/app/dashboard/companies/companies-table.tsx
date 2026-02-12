@@ -530,7 +530,7 @@ export function CompaniesTable({
                                 </div>
                             </TableHead>
                             <TableHead className="font-semibold text-foreground">{t('createdAt')}</TableHead>
-                            <TableHead className="w-[50px]"></TableHead>
+
                             <TableHead className="text-right w-[60px]">
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -572,7 +572,7 @@ export function CompaniesTable({
                                                         handleBulkFillEmployeeCount()
                                                     }}
                                                 >
-                                                    {t('fillEmployeeCount') || "Fill employee count"}
+                                                    {t('fillEmployeeCount')}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuItem
                                                     className="cursor-pointer"
@@ -626,25 +626,7 @@ export function CompaniesTable({
                                     <TableCell className="text-muted-foreground">
                                         {company.created_at ? new Date(company.created_at).toLocaleDateString(locale) : (language === 'ru' ? 'Н/Д' : 'N/A')}
                                     </TableCell>
-                                    <TableCell>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
-                                                    <MoreVertical className="h-4 w-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuItem
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        handleFillEmployeeCount(company)
-                                                    }}
-                                                >
-                                                    Fill employee count
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </TableCell>
+
                                     <TableCell className="text-right">
                                         <Checkbox
                                             checked={selectedIds.has(company.id)}

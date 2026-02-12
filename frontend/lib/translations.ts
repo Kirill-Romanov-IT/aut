@@ -53,6 +53,7 @@ export const translations = {
         deleteSelected: "Delete Selected",
         moveToReady: "Move to Ready",
         enrichData: "Enrich Data",
+        fillEmployeeCount: "Find information about employees",
         moveToKanban: "Move to Kanban",
 
         // Company Fields
@@ -208,6 +209,7 @@ export const translations = {
         deleteSelected: "Удалить выбранные",
         moveToReady: "В список готовых",
         enrichData: "Обогатить данные",
+        fillEmployeeCount: "Найти информацию о сотрудниках",
         moveToKanban: "Добавить в Kanban",
 
         // Company Fields
