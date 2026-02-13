@@ -232,6 +232,7 @@ export function LifecycleKanban() {
     const [tempTime, setTempTime] = React.useState("")
     const [editingField, setEditingField] = React.useState<string | null>(null)
     const [tempValues, setTempValues] = React.useState<Partial<Company>>({})
+    const [draggedInitialStatus, setDraggedInitialStatus] = React.useState<CompanyStatus | null>(null)
 
     const columns: Column[] = [
         { id: "new", title: t('newCompanies') },
@@ -396,7 +397,12 @@ export function LifecycleKanban() {
     )
 
     const handleDragStart = (event: DragStartEvent) => {
-        setActiveId(event.active.id as string)
+        const activeId = event.active.id as string
+        setActiveId(activeId)
+        const company = companies.find(c => c.id === activeId)
+        if (company) {
+            setDraggedInitialStatus(company.status)
+        }
     }
 
     const handleDragOver = (event: DragOverEvent) => {
@@ -461,7 +467,7 @@ export function LifecycleKanban() {
 
         const overColumnId = (over.data.current?.type === 'Column' ? overId : over.data.current?.company?.status) as CompanyStatus
 
-        if (overColumnId && activeCompany.status !== overColumnId) {
+        if (overColumnId && draggedInitialStatus && draggedInitialStatus !== overColumnId) {
             try {
                 const token = localStorage.getItem("token")
                 const response = await fetch(`http://localhost:8000/companies/${activeId}/status`, {
@@ -488,6 +494,7 @@ export function LifecycleKanban() {
         }
 
         setActiveId(null)
+        setDraggedInitialStatus(null)
     }
 
     const activeCompany = React.useMemo(() =>
