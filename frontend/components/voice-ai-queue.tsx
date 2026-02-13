@@ -113,9 +113,13 @@ export function VoiceAIQueue() {
             })
 
             if (response.ok) {
-                toast.success(t('listSentSuccessfully'))
+                const result = await response.json()
+                toast.success(`${t('listSentSuccessfully')} (${result.sent_count})`)
+                // Refresh queue — sent companies no longer have scheduled_at
+                await fetchQueue()
             } else {
-                toast.error(t('error'))
+                const err = await response.json().catch(() => null)
+                toast.error(err?.detail || t('error'))
             }
         } catch (error) {
             console.error("Failed to send list:", error)

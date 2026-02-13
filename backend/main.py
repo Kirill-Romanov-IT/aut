@@ -1,6 +1,9 @@
 import os
+import json
+import httpx
 from contextlib import asynccontextmanager
 from typing import Annotated
+from datetime import datetime
 from dotenv import load_dotenv
 import csv
 import io
@@ -9,6 +12,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 import psycopg
 from jose import JWTError, jwt
+from pydantic import BaseModel
 
 import db
 import models
@@ -289,6 +293,113 @@ async def generate_queue(current_user: models.User = Depends(get_current_user)):
 
             conn.commit()
             return {"message": f"Scheduled {len(rows)} companies", "updated_count": len(rows)}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+class SendCallQueueRequest(BaseModel):
+    company_ids: list[int]
+
+@app.post("/companies/send-call-queue")
+async def send_call_queue(body: SendCallQueueRequest, current_user: models.User = Depends(get_current_user)):
+    """Send queued companies to ElevenLabs API for outbound calling."""
+    if not body.company_ids:
+        raise HTTPException(status_code=400, detail="company_ids list is empty")
+
+    elevenlabs_url = os.environ.get("ELEVENLABS_API_URL", "http://127.0.0.1:10050")
+    elevenlabs_secret = os.environ.get("ELEVENLABS_SECRET_KEY", "testSecret")
+    agent_id = os.environ.get("ELEVENLABS_AGENT_ID", "")
+    phone_id = os.environ.get("ELEVENLABS_PHONE_ID", "")
+
+    if not agent_id or not phone_id:
+        raise HTTPException(
+            status_code=500,
+            detail="ELEVENLABS_AGENT_ID and ELEVENLABS_PHONE_ID must be configured in .env"
+        )
+
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            # Fetch companies from DB
+            cur.execute(
+                """
+                SELECT * FROM companies
+                WHERE id = ANY(%s)
+                  AND workflow_bucket = 'KANBAN'
+                  AND scheduled_at IS NOT NULL
+                """,
+                (body.company_ids,)
+            )
+            companies = cur.fetchall()
+
+            if not companies:
+                raise HTTPException(status_code=404, detail="No queued companies found for the given IDs")
+
+            # Build JSON payload per spec
+            items = []
+            for c in companies:
+                items.append({
+                    "company_name": c["name"] or "",
+                    "location": c["location"] or "",
+                    "contact_name": c["contact_name"] or "",
+                    "surname": c["contact_surname"] or "",
+                    "phone": c["contact_phone"] or "",
+                })
+
+            payload = {
+                "generated_at": datetime.utcnow().isoformat(),
+                "agent_id": agent_id,
+                "elevenlabs_phone_id": phone_id,
+                "call_type": "twilio",
+                "items": items,
+            }
+
+            # Send to ElevenLabs API
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                resp = await client.post(
+                    f"{elevenlabs_url}/load_json",
+                    json=payload,
+                    headers={
+                        "Authorization": f"Bearer {elevenlabs_secret}",
+                        "Content-Type": "application/json",
+                    },
+                )
+
+            if resp.status_code != 200:
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"ElevenLabs API error: {resp.status_code} — {resp.text}"
+                )
+
+            elevenlabs_result = resp.json()
+
+            # Clear scheduled_at so companies leave the queue view
+            sent_ids = [c["id"] for c in companies]
+            cur.execute(
+                "UPDATE companies SET scheduled_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ANY(%s)",
+                (sent_ids,)
+            )
+
+            # Activity log for each company
+            for cid in sent_ids:
+                cur.execute(
+                    "INSERT INTO activity_log (company_id, action, old_value, new_value) VALUES (%s, %s, %s, %s)",
+                    (cid, "sent_to_elevenlabs", "queued", "sent")
+                )
+
+            conn.commit()
+
+            return {
+                "message": f"Successfully sent {len(items)} companies to ElevenLabs",
+                "sent_count": len(items),
+                "elevenlabs_file_id": elevenlabs_result.get("file_id"),
+                "elevenlabs_inserted": elevenlabs_result.get("inserted"),
+                "elevenlabs_skipped": elevenlabs_result.get("skipped"),
+            }
+    except HTTPException:
+        raise
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
@@ -642,8 +753,6 @@ async def bulk_move_to_kanban(company_ids: list[int], current_user: models.User 
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
-
-from pydantic import BaseModel
 
 class HeadcountPrompt(BaseModel):
     prompt: str
