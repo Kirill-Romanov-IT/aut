@@ -61,6 +61,9 @@ class CompanyEnrich(BaseModel):
 class ReadyCompanyCreate(BaseModel):
     company_name: str
     location: Optional[str] = None
+    employees: int = 0
+    limit_val: Optional[str] = None
+    description: Optional[str] = None
     name: Optional[str] = None
     sur_name: Optional[str] = None
     phone_number: Optional[str] = None
@@ -69,6 +72,9 @@ class ReadyCompany(BaseModel):
     id: int
     company_name: str
     location: Optional[str]
+    employees: int = 0
+    limit_val: Optional[str] = None
+    description: Optional[str] = None
     name: Optional[str]
     sur_name: Optional[str]
     phone_number: Optional[str]

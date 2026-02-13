@@ -37,6 +37,22 @@ def init_db():
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
+            
+            # Create ready_companies table
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS ready_companies (
+                    id SERIAL PRIMARY KEY,
+                    company_name VARCHAR(255) NOT NULL,
+                    location VARCHAR(255),
+                    employees INT DEFAULT 0,
+                    limit_val VARCHAR(255),
+                    description TEXT,
+                    name VARCHAR(255),
+                    sur_name VARCHAR(255),
+                    phone_number VARCHAR(255),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
 
             # Create archived_companies table
             cur.execute("""
@@ -59,6 +75,11 @@ def init_db():
                 cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS contact_name VARCHAR(255);")
                 cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS contact_surname VARCHAR(255);")
                 cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(255);")
+                
+                # Ensure ready_companies has all columns too
+                cur.execute("ALTER TABLE ready_companies ADD COLUMN IF NOT EXISTS employees INT DEFAULT 0;")
+                cur.execute("ALTER TABLE ready_companies ADD COLUMN IF NOT EXISTS limit_val VARCHAR(255);")
+                cur.execute("ALTER TABLE ready_companies ADD COLUMN IF NOT EXISTS description TEXT;")
             except Exception:
                 pass # Should not fail with IF NOT EXISTS, but being safe.
 
