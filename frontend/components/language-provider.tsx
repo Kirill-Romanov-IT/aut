@@ -34,7 +34,9 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     return (
         <LanguageContext.Provider value={{ language, setLanguage, t }}>
-            {children}
+            <div suppressHydrationWarning>
+                {isHydrated ? children : <div style={{ visibility: 'hidden' }}>{children}</div>}
+            </div>
         </LanguageContext.Provider>
     );
 };

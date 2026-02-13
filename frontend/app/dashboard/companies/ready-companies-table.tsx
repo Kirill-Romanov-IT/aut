@@ -259,9 +259,17 @@ export function ReadyCompaniesTable({
                 }
             }
 
-            toast.success(t('success'))
-            onUpdate()
-            setSelectedIds(new Set())
+            if (updatedCount > 0) {
+                toast.success(t('success'), {
+                    description: `${t('savedToDatabase')} (${updatedCount})`
+                })
+                onUpdate()
+                setSelectedIds(new Set())
+            } else {
+                toast.error(t('error'), {
+                    description: "No companies were updated. Check logs for details."
+                })
+            }
 
         } catch (error) {
             console.error("Bulk DM find error:", error)

@@ -28,10 +28,10 @@ import { ReadyCompaniesTable, ReadyCompany } from "./ready-companies-table"
 
 export default function CompaniesPage() {
     const router = useRouter()
+    const [mounted, setMounted] = React.useState(false)
     const { t } = useLanguage()
     const [isDialogOpen, setIsDialogOpen] = React.useState(false)
     const [isDragging, setIsDragging] = React.useState(false)
-    // ... rest of state
     const [companies, setCompanies] = React.useState<any[]>([])
     const [readyCompanies, setReadyCompanies] = React.useState<ReadyCompany[]>([])
     const [isLoading, setIsLoading] = React.useState(true)
@@ -39,6 +39,10 @@ export default function CompaniesPage() {
     const [importResult, setImportResult] = React.useState<{ inserted: number, total: number } | null>(null)
     const [isSuccessDialogOpen, setIsSuccessDialogOpen] = React.useState(false)
     const fileInputRef = React.useRef<HTMLInputElement>(null)
+
+    React.useEffect(() => {
+        setMounted(true)
+    }, [])
 
     const fetchCompanies = React.useCallback(async () => {
         setIsLoading(true)
@@ -317,6 +321,10 @@ export default function CompaniesPage() {
         } finally {
             toast.dismiss(loadingToast)
         }
+    }
+
+    if (!mounted) {
+        return <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6" />
     }
 
     return (

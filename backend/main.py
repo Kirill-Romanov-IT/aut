@@ -226,7 +226,7 @@ async def get_companies(current_user: models.User = Depends(get_current_user)):
     conn = db.get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM companies WHERE is_in_kanban = FALSE ORDER BY created_at DESC")
+            cur.execute("SELECT * FROM companies WHERE is_in_kanban = FALSE AND is_ready = FALSE ORDER BY created_at DESC")
             companies = cur.fetchall()
             return [models.Company(**company) for company in companies]
     finally:
@@ -357,25 +357,12 @@ async def bulk_ready_companies(ids: list[int | str], current_user: models.User =
             if not int_ids:
                 return {"message": "No valid IDs provided", "updated_count": 0}
             
-            # 1. Fetch data from companies
-            cur.execute("SELECT name, location FROM companies WHERE id = ANY(%s)", (int_ids,))
-            companies_to_move = cur.fetchall()
-            
-            if not companies_to_move:
-                return {"message": "No matching companies found", "updated_count": 0}
-            
-            # 2. Insert into ready_companies (Name becomes company_name)
-            for company in companies_to_move:
-                cur.execute(
-                    "INSERT INTO ready_companies (company_name, location) VALUES (%s, %s)",
-                    (company['name'], company['location'])
-                )
-            
-            # 3. Delete from companies
-            cur.execute("DELETE FROM companies WHERE id = ANY(%s)", (int_ids,))
+            # Update is_ready flag
+            cur.execute("UPDATE companies SET is_ready = TRUE WHERE id = ANY(%s)", (int_ids,))
+            updated_count = cur.rowcount
             
             conn.commit()
-            return {"message": f"Successfully moved {len(companies_to_move)} companies to Ready", "updated_count": len(companies_to_move)}
+            return {"message": f"Successfully marked {updated_count} companies as Ready", "updated_count": updated_count}
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
@@ -387,9 +374,21 @@ async def get_ready_companies(current_user: models.User = Depends(get_current_us
     conn = db.get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM ready_companies ORDER BY created_at DESC")
+            cur.execute("SELECT * FROM companies WHERE is_ready = TRUE ORDER BY created_at DESC")
             companies = cur.fetchall()
-            return [models.ReadyCompany(**company) for company in companies]
+            # Map database fields to ReadyCompany model
+            ready_companies = []
+            for c in companies:
+                ready_companies.append(models.ReadyCompany(
+                    id=c['id'],
+                    company_name=c['name'],
+                    location=c['location'],
+                    name=c['contact_name'],
+                    sur_name=c['contact_surname'],
+                    phone_number=c['contact_phone'],
+                    created_at=c['created_at']
+                ))
+            return ready_companies
     finally:
         conn.close()
 
@@ -408,7 +407,8 @@ async def bulk_delete_ready_companies(ids: list[int | str], current_user: models
             if not int_ids:
                 return {"message": "No valid IDs provided", "deleted_count": 0}
             
-            cur.execute("DELETE FROM ready_companies WHERE id = ANY(%s)", (int_ids,))
+            # We delete from companies table but filter by is_ready just in case
+            cur.execute("DELETE FROM companies WHERE id = ANY(%s) AND is_ready = TRUE", (int_ids,))
             deleted_count = cur.rowcount
             conn.commit()
             return {"message": f"Successfully deleted {deleted_count} ready companies", "deleted_count": deleted_count}
@@ -417,6 +417,7 @@ async def bulk_delete_ready_companies(ids: list[int | str], current_user: models
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+
 @app.put("/ready-companies/{company_id}", response_model=models.ReadyCompany)
 async def update_ready_company(company_id: int, company_update: models.ReadyCompanyCreate, current_user: models.User = Depends(get_current_user)):
     conn = db.get_db_connection()
@@ -424,19 +425,27 @@ async def update_ready_company(company_id: int, company_update: models.ReadyComp
         with conn.cursor() as cur:
             cur.execute(
                 """
-                UPDATE ready_companies 
-                SET company_name = %s, location = %s, name = %s, sur_name = %s, phone_number = %s
-                WHERE id = %s
+                UPDATE companies 
+                SET name = %s, location = %s, contact_name = %s, contact_surname = %s, contact_phone = %s
+                WHERE id = %s AND is_ready = TRUE
                 RETURNING *
                 """,
                 (company_update.company_name, company_update.location, company_update.name, 
                  company_update.sur_name, company_update.phone_number, company_id)
             )
-            updated_company = cur.fetchone()
-            if not updated_company:
+            updated = cur.fetchone()
+            if not updated:
                 raise HTTPException(status_code=404, detail="Ready company not found")
             conn.commit()
-            return models.ReadyCompany(**updated_company)
+            return models.ReadyCompany(
+                id=updated['id'],
+                company_name=updated['name'],
+                location=updated['location'],
+                name=updated['contact_name'],
+                sur_name=updated['contact_surname'],
+                phone_number=updated['contact_phone'],
+                created_at=updated['created_at']
+            )
     except Exception as e:
         conn.rollback()
         if isinstance(e, HTTPException):
@@ -450,19 +459,19 @@ async def move_to_kanban(company_id: int, current_user: models.User = Depends(ge
     conn = db.get_db_connection()
     try:
         with conn.cursor() as cur:
-            # 1. Fetch from ready_companies
-            cur.execute("SELECT * FROM ready_companies WHERE id = %s", (company_id,))
+            # 1. Fetch from companies
+            cur.execute("SELECT * FROM companies WHERE id = %s AND is_ready = TRUE", (company_id,))
             ready_comp = cur.fetchone()
             if not ready_comp:
                 raise HTTPException(status_code=404, detail="Ready company not found")
             
             # Validation: Check if all fields are filled
             missing_fields = []
-            if not ready_comp.get('company_name'): missing_fields.append("Company Name")
+            if not ready_comp.get('name'): missing_fields.append("Company Name")
             if not ready_comp.get('location'): missing_fields.append("Location")
-            if not ready_comp.get('name'): missing_fields.append("Contact Name")
-            if not ready_comp.get('sur_name'): missing_fields.append("Surname")
-            if not ready_comp.get('phone_number'): missing_fields.append("Phone Number")
+            if not ready_comp.get('contact_name'): missing_fields.append("Contact Name")
+            if not ready_comp.get('contact_surname'): missing_fields.append("Surname")
+            if not ready_comp.get('contact_phone'): missing_fields.append("Phone Number")
             
             if missing_fields:
                 raise HTTPException(
@@ -470,23 +479,19 @@ async def move_to_kanban(company_id: int, current_user: models.User = Depends(ge
                     detail=f"I cannot transfer because the following fields are not filled: {', '.join(missing_fields)}"
                 )
             
-            # 2. Insert into companies (with status='new' and is_in_kanban=True)
+            # 2. Update status and flags
             cur.execute(
                 """
-                INSERT INTO companies (name, location, status, is_in_kanban, contact_name, contact_surname, contact_phone)
-                VALUES (%s, %s, 'new', TRUE, %s, %s, %s)
+                UPDATE companies 
+                SET status = 'new', is_in_kanban = TRUE, is_ready = FALSE
+                WHERE id = %s
                 RETURNING *
                 """,
-                (ready_comp['company_name'], ready_comp['location'], ready_comp['name'], 
-                 ready_comp['sur_name'], ready_comp['phone_number'])
+                (company_id,)
             )
-            new_company = cur.fetchone()
-            
-            # 3. Delete from ready_companies
-            cur.execute("DELETE FROM ready_companies WHERE id = %s", (company_id,))
-            
+            updated_company = cur.fetchone()
             conn.commit()
-            return models.Company(**new_company)
+            return models.Company(**updated_company)
     except Exception as e:
         conn.rollback()
         if isinstance(e, HTTPException):
@@ -502,19 +507,19 @@ async def bulk_move_to_kanban(company_ids: list[int], current_user: models.User 
         moved_companies = []
         with conn.cursor() as cur:
             for company_id in company_ids:
-                # 1. Fetch from ready_companies
-                cur.execute("SELECT * FROM ready_companies WHERE id = %s", (company_id,))
+                # 1. Fetch
+                cur.execute("SELECT * FROM companies WHERE id = %s AND is_ready = TRUE", (company_id,))
                 ready_comp = cur.fetchone()
                 if not ready_comp:
                     continue
                 
-                # Validation: Check if all fields are filled
+                # Validation
                 missing_fields = []
-                if not ready_comp.get('company_name'): missing_fields.append("Company Name")
+                if not ready_comp.get('name'): missing_fields.append("Company Name")
                 if not ready_comp.get('location'): missing_fields.append("Location")
-                if not ready_comp.get('name'): missing_fields.append("Contact Name")
-                if not ready_comp.get('sur_name'): missing_fields.append("Surname")
-                if not ready_comp.get('phone_number'): missing_fields.append("Phone Number")
+                if not ready_comp.get('contact_name'): missing_fields.append("Contact Name")
+                if not ready_comp.get('contact_surname'): missing_fields.append("Surname")
+                if not ready_comp.get('contact_phone'): missing_fields.append("Phone Number")
                 
                 if missing_fields:
                     raise HTTPException(
@@ -522,21 +527,18 @@ async def bulk_move_to_kanban(company_ids: list[int], current_user: models.User 
                         detail=f"I cannot transfer because the following fields are not filled: {', '.join(missing_fields)}"
                     )
                 
-                # 2. Insert into companies (with status='new' and is_in_kanban=True)
+                # 2. Update
                 cur.execute(
                     """
-                    INSERT INTO companies (name, location, status, is_in_kanban, contact_name, contact_surname, contact_phone)
-                    VALUES (%s, %s, 'new', TRUE, %s, %s, %s)
+                    UPDATE companies 
+                    SET status = 'new', is_in_kanban = TRUE, is_ready = FALSE
+                    WHERE id = %s
                     RETURNING *
                     """,
-                    (ready_comp['company_name'], ready_comp['location'], ready_comp['name'], 
-                     ready_comp['sur_name'], ready_comp['phone_number'])
+                    (company_id,)
                 )
-                new_company = cur.fetchone()
-                moved_companies.append(models.Company(**new_company))
-                
-                # 3. Delete from ready_companies
-                cur.execute("DELETE FROM ready_companies WHERE id = %s", (company_id,))
+                updated_company = cur.fetchone()
+                moved_companies.append(models.Company(**updated_company))
             
             conn.commit()
             return moved_companies
@@ -593,22 +595,22 @@ async def bulk_enrich_ready_companies(updates: list[models.ReadyCompanyEnrich], 
                 values = []
                 
                 if update.name is not None:
-                    update_fields.append("name = %s")
+                    update_fields.append("contact_name = %s")
                     values.append(update.name)
                 
                 if update.sur_name is not None:
-                    update_fields.append("sur_name = %s")
+                    update_fields.append("contact_surname = %s")
                     values.append(update.sur_name)
                     
                 if update.phone_number is not None:
-                    update_fields.append("phone_number = %s")
+                    update_fields.append("contact_phone = %s")
                     values.append(update.phone_number)
                 
                 if not update_fields:
                     continue
                     
                 values.append(update.id)
-                query = f"UPDATE ready_companies SET {', '.join(update_fields)} WHERE id = %s"
+                query = f"UPDATE companies SET {', '.join(update_fields)} WHERE id = %s AND is_ready = TRUE"
                 
                 cur.execute(query, values)
                 
@@ -650,8 +652,8 @@ async def archive_ready_company(company_id: int, current_user: models.User = Dep
     conn = db.get_db_connection()
     try:
         with conn.cursor() as cur:
-            # 1. Fetch from ready_companies
-            cur.execute("SELECT * FROM ready_companies WHERE id = %s", (company_id,))
+            # 1. Fetch from companies
+            cur.execute("SELECT * FROM companies WHERE id = %s AND is_ready = TRUE", (company_id,))
             ready_comp = cur.fetchone()
             if not ready_comp:
                 raise HTTPException(status_code=404, detail="Ready company not found")
@@ -663,13 +665,13 @@ async def archive_ready_company(company_id: int, current_user: models.User = Dep
                 VALUES (%s, %s, %s, %s, %s)
                 RETURNING *
                 """,
-                (ready_comp['company_name'], ready_comp['location'], ready_comp['name'], 
-                 ready_comp['sur_name'], ready_comp['phone_number'])
+                (ready_comp['name'], ready_comp['location'], ready_comp['contact_name'], 
+                 ready_comp['contact_surname'], ready_comp['contact_phone'])
             )
             archived_company = cur.fetchone()
             
-            # 3. Delete from ready_companies
-            cur.execute("DELETE FROM ready_companies WHERE id = %s", (company_id,))
+            # 3. Delete from companies
+            cur.execute("DELETE FROM companies WHERE id = %s", (company_id,))
             
             conn.commit()
             return models.ArchivedCompany(**archived_company)

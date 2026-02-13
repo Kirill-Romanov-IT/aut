@@ -34,6 +34,8 @@ def init_db():
                     contact_name VARCHAR(255),
                     contact_surname VARCHAR(255),
                     contact_phone VARCHAR(255),
+                    is_ready BOOLEAN DEFAULT FALSE,
+                    is_in_kanban BOOLEAN DEFAULT FALSE,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
             """)
@@ -59,6 +61,7 @@ def init_db():
                 cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS contact_name VARCHAR(255);")
                 cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS contact_surname VARCHAR(255);")
                 cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(255);")
+                cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS is_ready BOOLEAN DEFAULT FALSE;")
                 cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS is_in_kanban BOOLEAN DEFAULT FALSE;")
             except Exception:
                 pass # Should not fail with IF NOT EXISTS, but being safe.
