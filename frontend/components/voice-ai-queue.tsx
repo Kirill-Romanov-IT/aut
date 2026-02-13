@@ -4,7 +4,7 @@ import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ClockIcon, UserIcon, MapPinIcon, MicIcon, RefreshCwIcon } from "lucide-react"
+import { ClockIcon, UserIcon, MapPinIcon, MicIcon, Trash2Icon, SendIcon } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { toast } from "sonner"
 
@@ -44,6 +44,7 @@ export function VoiceAIQueue() {
     const [mounted, setMounted] = React.useState(false)
     const [companies, setCompanies] = React.useState<Company[]>([])
     const [isLoading, setIsLoading] = React.useState(false)
+    const [isSending, setIsSending] = React.useState(false)
 
     const fetchQueue = React.useCallback(async () => {
         setIsLoading(true)
@@ -88,9 +89,40 @@ export function VoiceAIQueue() {
         fetchQueue()
     }, [fetchQueue])
 
-    const handleRefresh = () => {
-        fetchQueue()
+    const handleClearQueue = () => {
+        setCompanies([])
         toast.success(t('success'))
+    }
+
+    const handleSendList = async () => {
+        if (companies.length === 0) return
+        setIsSending(true)
+        try {
+            const token = localStorage.getItem("token")
+            if (!token) return
+
+            const response = await fetch("http://localhost:8000/companies/send-call-queue", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    company_ids: companies.map(c => parseInt(c.id)),
+                }),
+            })
+
+            if (response.ok) {
+                toast.success(t('listSentSuccessfully'))
+            } else {
+                toast.error(t('error'))
+            }
+        } catch (error) {
+            console.error("Failed to send list:", error)
+            toast.error(t('error'))
+        } finally {
+            setIsSending(false)
+        }
     }
 
     if (!mounted) return null
@@ -102,16 +134,28 @@ export function VoiceAIQueue() {
                     <CardTitle className="text-2xl font-bold tracking-tight">{t('voiceAiQueueTitle')}</CardTitle>
                     <p className="text-sm text-muted-foreground">{t('upcomingCalls')}</p>
                 </div>
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRefresh}
-                    disabled={isLoading}
-                    className="rounded-xl transition-all active:scale-95"
-                >
-                    <RefreshCwIcon className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-                    {t('refreshQueue')}
-                </Button>
+                <div className="flex items-center gap-3">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleClearQueue}
+                        disabled={companies.length === 0}
+                        className="rounded-xl transition-all active:scale-95"
+                    >
+                        <Trash2Icon className="h-4 w-4 mr-2" />
+                        {t('clearQueue')}
+                    </Button>
+                    <Button
+                        size="sm"
+                        onClick={handleSendList}
+                        disabled={isSending || companies.length === 0}
+                        className="relative rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 disabled:shadow-none px-5"
+                    >
+                        <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/10 to-transparent opacity-0 hover:opacity-100 transition-opacity" />
+                        <SendIcon className={`h-4 w-4 mr-2 ${isSending ? 'animate-pulse' : ''}`} />
+                        {isSending ? t('sendingList') : t('sendList')}
+                    </Button>
+                </div>
             </CardHeader>
             <CardContent className="px-0">
                 <div className="space-y-4">

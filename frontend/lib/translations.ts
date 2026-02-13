@@ -167,6 +167,9 @@ export const translations = {
         loginFirst: "Please login first",
         enrichmentFailed: "Enrichment failed",
         savedToDatabase: "Saved to database.",
+        sendList: "Send List",
+        sendingList: "Sending...",
+        listSentSuccessfully: "List sent successfully!",
     },
     ru: {
         // Navigation
@@ -333,5 +336,8 @@ export const translations = {
         loginFirst: "Пожалуйста, сначала войдите в систему",
         enrichmentFailed: "Ошибка обогащения",
         savedToDatabase: "Сохранено в базу данных.",
+        sendList: "Отправить список",
+        sendingList: "Отправка...",
+        listSentSuccessfully: "Список успешно отправлен!",
     }
 };
