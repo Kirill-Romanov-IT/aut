@@ -347,21 +347,17 @@ async def bulk_ready_companies(ids: list[int | str], current_user: models.User =
                 return {"message": "No valid IDs provided", "updated_count": 0}
             
             # 1. Fetch data from companies
-            cur.execute("SELECT name, location, employees, limit_val, description, contact_name, contact_surname, contact_phone FROM companies WHERE id = ANY(%s)", (int_ids,))
+            cur.execute("SELECT name, location FROM companies WHERE id = ANY(%s)", (int_ids,))
             companies_to_move = cur.fetchall()
             
             if not companies_to_move:
                 return {"message": "No matching companies found", "updated_count": 0}
             
-            # 2. Insert into ready_companies
+            # 2. Insert into ready_companies (Name becomes company_name)
             for company in companies_to_move:
                 cur.execute(
-                    """
-                    INSERT INTO ready_companies (company_name, location, employees, limit_val, description, name, sur_name, phone_number) 
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    """,
-                    (company['name'], company['location'], company['employees'], company['limit_val'], 
-                     company['description'], company['contact_name'], company['contact_surname'], company['contact_phone'])
+                    "INSERT INTO ready_companies (company_name, location) VALUES (%s, %s)",
+                    (company['name'], company['location'])
                 )
             
             # 3. Delete from companies
@@ -449,18 +445,29 @@ async def move_to_kanban(company_id: int, current_user: models.User = Depends(ge
             if not ready_comp:
                 raise HTTPException(status_code=404, detail="Ready company not found")
             
-            # Validation removed to allow moving back to Kanban even with missing fields
+            # Validation: Check if all fields are filled
+            missing_fields = []
+            if not ready_comp.get('company_name'): missing_fields.append("Company Name")
+            if not ready_comp.get('location'): missing_fields.append("Location")
+            if not ready_comp.get('name'): missing_fields.append("Contact Name")
+            if not ready_comp.get('sur_name'): missing_fields.append("Surname")
+            if not ready_comp.get('phone_number'): missing_fields.append("Phone Number")
+            
+            if missing_fields:
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"I cannot transfer because the following fields are not filled: {', '.join(missing_fields)}"
+                )
             
             # 2. Insert into companies (with status='new')
             cur.execute(
                 """
-                INSERT INTO companies (name, location, employees, limit_val, description, status, contact_name, contact_surname, contact_phone)
-                VALUES (%s, %s, %s, %s, %s, 'new', %s, %s, %s)
+                INSERT INTO companies (name, location, status, contact_name, contact_surname, contact_phone)
+                VALUES (%s, %s, 'new', %s, %s, %s)
                 RETURNING *
                 """,
-                (ready_comp['company_name'], ready_comp['location'], ready_comp.get('employees', 0), 
-                 ready_comp.get('limit_val'), ready_comp.get('description'), 
-                 ready_comp['name'], ready_comp['sur_name'], ready_comp['phone_number'])
+                (ready_comp['company_name'], ready_comp['location'], ready_comp['name'], 
+                 ready_comp['sur_name'], ready_comp['phone_number'])
             )
             new_company = cur.fetchone()
             
@@ -490,18 +497,29 @@ async def bulk_move_to_kanban(company_ids: list[int], current_user: models.User 
                 if not ready_comp:
                     continue
                 
-                # Validation removed
+                # Validation: Check if all fields are filled
+                missing_fields = []
+                if not ready_comp.get('company_name'): missing_fields.append("Company Name")
+                if not ready_comp.get('location'): missing_fields.append("Location")
+                if not ready_comp.get('name'): missing_fields.append("Contact Name")
+                if not ready_comp.get('sur_name'): missing_fields.append("Surname")
+                if not ready_comp.get('phone_number'): missing_fields.append("Phone Number")
+                
+                if missing_fields:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"I cannot transfer because the following fields are not filled: {', '.join(missing_fields)}"
+                    )
                 
                 # 2. Insert into companies (with status='new')
                 cur.execute(
                     """
-                    INSERT INTO companies (name, location, employees, limit_val, description, status, contact_name, contact_surname, contact_phone)
-                    VALUES (%s, %s, %s, %s, %s, 'new', %s, %s, %s)
+                    INSERT INTO companies (name, location, status, contact_name, contact_surname, contact_phone)
+                    VALUES (%s, %s, 'new', %s, %s, %s)
                     RETURNING *
                     """,
-                    (ready_comp['company_name'], ready_comp['location'], ready_comp.get('employees', 0),
-                     ready_comp.get('limit_val'), ready_comp.get('description'),
-                     ready_comp['name'], ready_comp['sur_name'], ready_comp['phone_number'])
+                    (ready_comp['company_name'], ready_comp['location'], ready_comp['name'], 
+                     ready_comp['sur_name'], ready_comp['phone_number'])
                 )
                 new_company = cur.fetchone()
                 moved_companies.append(models.Company(**new_company))
