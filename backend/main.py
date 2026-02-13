@@ -226,7 +226,18 @@ async def get_companies(current_user: models.User = Depends(get_current_user)):
     conn = db.get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM companies ORDER BY created_at DESC")
+            cur.execute("SELECT * FROM companies WHERE is_in_kanban = FALSE ORDER BY created_at DESC")
+            companies = cur.fetchall()
+            return [models.Company(**company) for company in companies]
+    finally:
+        conn.close()
+
+@app.get("/companies/kanban", response_model=list[models.Company])
+async def get_kanban_companies(current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT * FROM companies WHERE is_in_kanban = TRUE ORDER BY created_at DESC")
             companies = cur.fetchall()
             return [models.Company(**company) for company in companies]
     finally:
@@ -459,11 +470,11 @@ async def move_to_kanban(company_id: int, current_user: models.User = Depends(ge
                     detail=f"I cannot transfer because the following fields are not filled: {', '.join(missing_fields)}"
                 )
             
-            # 2. Insert into companies (with status='new')
+            # 2. Insert into companies (with status='new' and is_in_kanban=True)
             cur.execute(
                 """
-                INSERT INTO companies (name, location, status, contact_name, contact_surname, contact_phone)
-                VALUES (%s, %s, 'new', %s, %s, %s)
+                INSERT INTO companies (name, location, status, is_in_kanban, contact_name, contact_surname, contact_phone)
+                VALUES (%s, %s, 'new', TRUE, %s, %s, %s)
                 RETURNING *
                 """,
                 (ready_comp['company_name'], ready_comp['location'], ready_comp['name'], 
@@ -511,11 +522,11 @@ async def bulk_move_to_kanban(company_ids: list[int], current_user: models.User 
                         detail=f"I cannot transfer because the following fields are not filled: {', '.join(missing_fields)}"
                     )
                 
-                # 2. Insert into companies (with status='new')
+                # 2. Insert into companies (with status='new' and is_in_kanban=True)
                 cur.execute(
                     """
-                    INSERT INTO companies (name, location, status, contact_name, contact_surname, contact_phone)
-                    VALUES (%s, %s, 'new', %s, %s, %s)
+                    INSERT INTO companies (name, location, status, is_in_kanban, contact_name, contact_surname, contact_phone)
+                    VALUES (%s, %s, 'new', TRUE, %s, %s, %s)
                     RETURNING *
                     """,
                     (ready_comp['company_name'], ready_comp['location'], ready_comp['name'], 
@@ -737,9 +748,9 @@ async def bulk_restore_archived_companies(company_ids: list[int], current_user: 
             
             restored_count = 0
             for company in companies:
-                # Insert into companies (Kanban) with 'new' status
+                # Insert into companies (Kanban) with 'new' status and is_in_kanban=True
                 cur.execute(
-                    "INSERT INTO companies (name, location, contact_name, contact_surname, contact_phone, status) VALUES (%s, %s, %s, %s, %s, 'new')",
+                    "INSERT INTO companies (name, location, contact_name, contact_surname, contact_phone, status, is_in_kanban) VALUES (%s, %s, %s, %s, %s, 'new', TRUE)",
                     (company['company_name'], company['location'], company['name'], company['sur_name'], company['phone_number'])
                 )
                 restored_count += 1

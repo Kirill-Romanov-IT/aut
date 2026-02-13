@@ -35,6 +35,7 @@ class CompanyCreate(BaseModel):
     contact_name: Optional[str] = None
     contact_surname: Optional[str] = None
     contact_phone: Optional[str] = None
+    is_in_kanban: bool = False
 
 class Company(BaseModel):
     id: int
@@ -44,6 +45,7 @@ class Company(BaseModel):
     limit_val: Optional[str]
     description: Optional[str]
     is_ready: bool = False
+    is_in_kanban: bool = False
     status: str = "new"
     scheduled_at: Optional[datetime] = None
     contact_name: Optional[str] = None

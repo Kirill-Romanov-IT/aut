@@ -244,7 +244,7 @@ export function LifecycleKanban() {
     const fetchCompanies = async () => {
         try {
             const token = localStorage.getItem("token")
-            const response = await fetch("http://localhost:8000/companies", {
+            const response = await fetch("http://localhost:8000/companies/kanban", {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
