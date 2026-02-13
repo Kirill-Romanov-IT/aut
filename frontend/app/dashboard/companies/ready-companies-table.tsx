@@ -153,23 +153,6 @@ export function ReadyCompaniesTable({
             const data = await response.json()
 
             if (response.ok) {
-                const kanbanData = localStorage.getItem("lifecycle-kanban-state")
-                const currentKanban = kanbanData ? JSON.parse(kanbanData) : []
-
-                const newKanbanCompanies = data.map((comp: any) => ({
-                    id: String(comp.id),
-                    name: comp.name,
-                    location: comp.location || "",
-                    employees: comp.employees || 0,
-                    status: comp.status || "new",
-                    scheduledAt: comp.scheduled_at || new Date().toISOString(),
-                    contactName: comp.contact_name || "",
-                    contactSurname: comp.contact_surname || "",
-                    contactPhone: comp.contact_phone || ""
-                }))
-
-                localStorage.setItem("lifecycle-kanban-state", JSON.stringify([...currentKanban, ...newKanbanCompanies]))
-
                 toast.success(t('success'))
                 setSelectedIds(new Set())
                 onUpdate()

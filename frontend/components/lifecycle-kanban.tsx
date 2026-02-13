@@ -60,9 +60,6 @@ type Column = {
     title: string
 }
 
-const KANBAN_STORAGE_KEY = "lifecycle-kanban-state"
-const QUEUE_STORAGE_KEY = "voice-ai-queue-state"
-
 // --- Helpers ---
 const formatCallDate = (isoString: string, t: (key: any) => string) => {
     if (!isoString) return ""
@@ -70,27 +67,6 @@ const formatCallDate = (isoString: string, t: (key: any) => string) => {
     // Simplified date formatting for now
     return date.toLocaleString()
 }
-
-const generateRandomCallDate = () => {
-    const now = new Date()
-    const futureDate = new Date(now.getTime() + Math.random() * 10 * 24 * 60 * 60 * 1000) // Next 10 days
-    futureDate.setHours(Math.floor(Math.random() * 12) + 9, Math.random() > 0.5 ? 0 : 30, 0, 0)
-    return futureDate.toISOString()
-}
-
-// --- Mock Data ---
-const MOCK_COMPANIES: Company[] = [
-    { id: "1", name: "Vladislav Sayko", location: "Moscow", employees: 120, status: "new", scheduledAt: generateRandomCallDate(), contactName: "Vladislav", contactSurname: "Sayko", contactPhone: "+7 900 123-45-67" },
-    { id: "2", name: "Global Solution", location: "St. Petersburg", employees: 45, status: "new", scheduledAt: generateRandomCallDate(), contactName: "Anna", contactSurname: "Ivanova", contactPhone: "+7 911 222-33-44" },
-    { id: "3", name: "Tech Innovators", location: "Kazan", employees: 200, status: "ivr", scheduledAt: generateRandomCallDate(), contactName: "Dmitry", contactSurname: "Petrov", contactPhone: "+7 922 333-44-55" },
-    { id: "4", name: "SoftServe", location: "Novosibirsk", employees: 15, status: "dm-found-call-time", scheduledAt: generateRandomCallDate(), contactName: "Elena", contactSurname: "Sidorova", contactPhone: "+7 933 444-55-66" },
-    { id: "5", name: "NextGen", location: "Yekaterinburg", employees: 500, status: "not-responding", scheduledAt: generateRandomCallDate(), contactName: "Sergey", contactSurname: "Kozlov", contactPhone: "+7 944 555-66-77" },
-    { id: "6", name: "Alpha Group", location: "Samara", employees: 100, status: "ivr", scheduledAt: generateRandomCallDate(), contactName: "Olga", contactSurname: "Morozova", contactPhone: "+7 955 666-77-88" },
-    { id: "7", name: "Omega Corp", location: "Omsk", employees: 50, status: "hang-up", scheduledAt: generateRandomCallDate(), contactName: "Igor", contactSurname: "Volkov", contactPhone: "+7 966 777-88-99" },
-    { id: "8", name: "Delta Systems", location: "Ufa", employees: 300, status: "dm-found-call-time", scheduledAt: generateRandomCallDate(), contactName: "Maria", contactSurname: "Popova", contactPhone: "+7 977 888-99-00" },
-    { id: "9", name: "Zeta Inc", location: "Perm", employees: 80, status: "new", scheduledAt: generateRandomCallDate(), contactName: "Alexey", contactSurname: "Sokolov", contactPhone: "+7 988 999-00-11" },
-    { id: "10", name: "Beta LLC", location: "Voronezh", employees: 60, status: "ivr", scheduledAt: generateRandomCallDate(), contactName: "Natalia", contactSurname: "Vasilieva", contactPhone: "+7 999 000-11-22" },
-]
 
 // --- Components ---
 
@@ -225,7 +201,7 @@ function DragOverlayCard({ company }: { company: Company }) {
 export function LifecycleKanban() {
     const { t } = useLanguage()
     const [mounted, setMounted] = React.useState(false)
-    const [companies, setCompanies] = React.useState<Company[]>(MOCK_COMPANIES)
+    const [companies, setCompanies] = React.useState<Company[]>([])
     const [activeId, setActiveId] = React.useState<string | null>(null)
     const [selectedCompany, setSelectedCompany] = React.useState<Company | null>(null)
     const [isEditingTime, setIsEditingTime] = React.useState(false)
@@ -257,8 +233,8 @@ export function LifecycleKanban() {
                     name: c.name,
                     location: c.location,
                     employees: c.employees,
-                    status: c.status as CompanyStatus,
-                    scheduledAt: c.scheduled_at || generateRandomCallDate(),
+                    status: (c.kanban_column || c.status) as CompanyStatus,
+                    scheduledAt: c.scheduled_at || "",
                     contactName: c.contact_name,
                     contactSurname: c.contact_surname,
                     contactPhone: c.contact_phone,
@@ -267,7 +243,6 @@ export function LifecycleKanban() {
             }
         } catch (error) {
             console.error("Failed to fetch companies:", error)
-            setCompanies(MOCK_COMPANIES)
         }
     }
 
@@ -277,21 +252,66 @@ export function LifecycleKanban() {
         setMounted(true)
     }, [])
 
-    const generateQueue = () => {
-        localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(companies))
-        // Dispatch event for Voice AI page to update
-        window.dispatchEvent(new Event('storage'))
-        toast.success(t('success'))
+    const generateQueue = async () => {
+        const loadingToast = toast.loading(t('loading'))
+        try {
+            const token = localStorage.getItem("token")
+            const response = await fetch("http://localhost:8000/companies/generate-queue", {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            })
+            if (response.ok) {
+                const data = await response.json()
+                toast.success(t('success'), {
+                    description: `${data.updated_count} ${t('companies')}`,
+                })
+                // Refresh to show updated scheduled times
+                fetchCompanies()
+            } else {
+                toast.error(t('error'))
+            }
+        } catch (error) {
+            console.error("Failed to generate queue:", error)
+            toast.error(t('error'))
+        } finally {
+            toast.dismiss(loadingToast)
+        }
     }
 
-    const handleTimeSave = () => {
+    const handleTimeSave = async () => {
         if (!selectedCompany || !tempTime) return
 
         const isoTime = new Date(tempTime).toISOString()
-        setCompanies(prev => prev.map(c =>
-            c.id === selectedCompany.id ? { ...c, scheduledAt: isoTime } : c
-        ))
-        setSelectedCompany(prev => prev ? { ...prev, scheduledAt: isoTime } : null)
+        try {
+            const token = localStorage.getItem("token")
+            const response = await fetch(`http://localhost:8000/companies/${selectedCompany.id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    name: selectedCompany.name,
+                    employees: selectedCompany.employees,
+                    location: selectedCompany.location,
+                    scheduled_at: isoTime,
+                }),
+            })
+            if (response.ok) {
+                setCompanies(prev => prev.map(c =>
+                    c.id === selectedCompany.id ? { ...c, scheduledAt: isoTime } : c
+                ))
+                setSelectedCompany(prev => prev ? { ...prev, scheduledAt: isoTime } : null)
+                toast.success(t('success'))
+            } else {
+                toast.error(t('error'))
+            }
+        } catch (error) {
+            console.error("Failed to save scheduled time:", error)
+            toast.error(t('error'))
+        }
         setIsEditingTime(false)
     }
 

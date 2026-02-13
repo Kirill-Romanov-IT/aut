@@ -226,7 +226,7 @@ async def get_companies(current_user: models.User = Depends(get_current_user)):
     conn = db.get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM companies WHERE is_in_kanban = FALSE AND is_ready = FALSE ORDER BY created_at DESC")
+            cur.execute("SELECT * FROM companies WHERE workflow_bucket = 'ALL' ORDER BY created_at DESC")
             companies = cur.fetchall()
             return [models.Company(**company) for company in companies]
     finally:
@@ -237,11 +237,64 @@ async def get_kanban_companies(current_user: models.User = Depends(get_current_u
     conn = db.get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM companies WHERE is_in_kanban = TRUE ORDER BY created_at DESC")
+            cur.execute("SELECT * FROM companies WHERE workflow_bucket = 'KANBAN' ORDER BY created_at DESC")
             companies = cur.fetchall()
             return [models.Company(**company) for company in companies]
     finally:
         conn.close()
+
+@app.get("/companies/call-queue", response_model=list[models.Company])
+async def get_call_queue(current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT * FROM companies
+                WHERE workflow_bucket = 'KANBAN'
+                  AND scheduled_at IS NOT NULL
+                ORDER BY scheduled_at ASC
+            """)
+            companies = cur.fetchall()
+            return [models.Company(**c) for c in companies]
+    finally:
+        conn.close()
+
+@app.post("/companies/generate-queue")
+async def generate_queue(current_user: models.User = Depends(get_current_user)):
+    """Assign scheduled_at times to all KANBAN companies that don't have one yet."""
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id FROM companies
+                WHERE workflow_bucket = 'KANBAN' AND scheduled_at IS NULL
+                ORDER BY id
+            """)
+            rows = cur.fetchall()
+
+            if not rows:
+                return {"message": "All kanban companies already have scheduled times", "updated_count": 0}
+
+            from datetime import datetime, timedelta
+            now = datetime.now()
+            # Space calls 30 minutes apart starting from next round hour
+            base_time = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+
+            for i, row in enumerate(rows):
+                call_time = base_time + timedelta(minutes=30 * i)
+                cur.execute(
+                    "UPDATE companies SET scheduled_at = %s, updated_at = CURRENT_TIMESTAMP WHERE id = %s",
+                    (call_time, row['id'])
+                )
+
+            conn.commit()
+            return {"message": f"Scheduled {len(rows)} companies", "updated_count": len(rows)}
+    except Exception as e:
+        conn.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
 @app.put("/companies/{company_id}", response_model=models.Company)
 async def update_company(company_id: int, company_update: models.CompanyCreate, current_user: models.User = Depends(get_current_user)):
     conn = db.get_db_connection()
@@ -249,12 +302,14 @@ async def update_company(company_id: int, company_update: models.CompanyCreate, 
         with conn.cursor() as cur:
             cur.execute(
                 """
-                UPDATE companies 
-                SET name = %s, employees = %s, location = %s
+                UPDATE companies
+                SET name = %s, employees = %s, location = %s,
+                    scheduled_at = %s, updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s
                 RETURNING *
                 """,
-                (company_update.name, company_update.employees, company_update.location, company_id)
+                (company_update.name, company_update.employees, company_update.location,
+                 company_update.scheduled_at, company_id)
             )
             updated_company = cur.fetchone()
             if not updated_company:
@@ -274,18 +329,31 @@ async def update_company_status(company_id: int, status_update: models.CompanySt
     conn = db.get_db_connection()
     try:
         with conn.cursor() as cur:
+            # Read old kanban_column for activity log
+            cur.execute("SELECT kanban_column FROM companies WHERE id = %s", (company_id,))
+            old_row = cur.fetchone()
+            old_column = old_row['kanban_column'] if old_row else None
+
             cur.execute(
                 """
-                UPDATE companies 
-                SET status = %s
+                UPDATE companies
+                SET status = %s, kanban_column = %s, updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s
                 RETURNING *
                 """,
-                (status_update.status, company_id)
+                (status_update.status, status_update.status, company_id)
             )
             updated_company = cur.fetchone()
             if not updated_company:
                 raise HTTPException(status_code=404, detail="Company not found")
+
+            # Activity log for kanban column change
+            if old_column != status_update.status:
+                cur.execute(
+                    "INSERT INTO activity_log (company_id, action, old_value, new_value) VALUES (%s, %s, %s, %s)",
+                    (company_id, 'kanban_column_change', old_column, status_update.status)
+                )
+
             conn.commit()
             return models.Company(**updated_company)
     except Exception as e:
@@ -357,10 +425,20 @@ async def bulk_ready_companies(ids: list[int | str], current_user: models.User =
             if not int_ids:
                 return {"message": "No valid IDs provided", "updated_count": 0}
             
-            # Update is_ready flag
-            cur.execute("UPDATE companies SET is_ready = TRUE WHERE id = ANY(%s)", (int_ids,))
+            # Update workflow_bucket and legacy is_ready flag
+            cur.execute(
+                "UPDATE companies SET workflow_bucket = 'READY', is_ready = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = ANY(%s) AND workflow_bucket = 'ALL'",
+                (int_ids,)
+            )
             updated_count = cur.rowcount
-            
+
+            # Activity log entries
+            for cid in int_ids:
+                cur.execute(
+                    "INSERT INTO activity_log (company_id, action, old_value, new_value) VALUES (%s, %s, %s, %s)",
+                    (cid, 'workflow_bucket_change', 'ALL', 'READY')
+                )
+
             conn.commit()
             return {"message": f"Successfully marked {updated_count} companies as Ready", "updated_count": updated_count}
     except Exception as e:
@@ -374,7 +452,7 @@ async def get_ready_companies(current_user: models.User = Depends(get_current_us
     conn = db.get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM companies WHERE is_ready = TRUE ORDER BY created_at DESC")
+            cur.execute("SELECT * FROM companies WHERE workflow_bucket = 'READY' ORDER BY created_at DESC")
             companies = cur.fetchall()
             # Map database fields to ReadyCompany model
             ready_companies = []
@@ -407,8 +485,8 @@ async def bulk_delete_ready_companies(ids: list[int | str], current_user: models
             if not int_ids:
                 return {"message": "No valid IDs provided", "deleted_count": 0}
             
-            # We delete from companies table but filter by is_ready just in case
-            cur.execute("DELETE FROM companies WHERE id = ANY(%s) AND is_ready = TRUE", (int_ids,))
+            # We delete from companies table but filter by workflow_bucket just in case
+            cur.execute("DELETE FROM companies WHERE id = ANY(%s) AND workflow_bucket = 'READY'", (int_ids,))
             deleted_count = cur.rowcount
             conn.commit()
             return {"message": f"Successfully deleted {deleted_count} ready companies", "deleted_count": deleted_count}
@@ -427,10 +505,10 @@ async def update_ready_company(company_id: int, company_update: models.ReadyComp
                 """
                 UPDATE companies 
                 SET name = %s, location = %s, contact_name = %s, contact_surname = %s, contact_phone = %s
-                WHERE id = %s AND is_ready = TRUE
+                WHERE id = %s AND workflow_bucket = 'READY'
                 RETURNING *
                 """,
-                (company_update.company_name, company_update.location, company_update.name, 
+                (company_update.company_name, company_update.location, company_update.name,
                  company_update.sur_name, company_update.phone_number, company_id)
             )
             updated = cur.fetchone()
@@ -460,11 +538,11 @@ async def move_to_kanban(company_id: int, current_user: models.User = Depends(ge
     try:
         with conn.cursor() as cur:
             # 1. Fetch from companies
-            cur.execute("SELECT * FROM companies WHERE id = %s AND is_ready = TRUE", (company_id,))
+            cur.execute("SELECT * FROM companies WHERE id = %s AND workflow_bucket = 'READY'", (company_id,))
             ready_comp = cur.fetchone()
             if not ready_comp:
                 raise HTTPException(status_code=404, detail="Ready company not found")
-            
+
             # Validation: Check if all fields are filled
             missing_fields = []
             if not ready_comp.get('name'): missing_fields.append("Company Name")
@@ -472,24 +550,33 @@ async def move_to_kanban(company_id: int, current_user: models.User = Depends(ge
             if not ready_comp.get('contact_name'): missing_fields.append("Contact Name")
             if not ready_comp.get('contact_surname'): missing_fields.append("Surname")
             if not ready_comp.get('contact_phone'): missing_fields.append("Phone Number")
-            
+
             if missing_fields:
                 raise HTTPException(
-                    status_code=400, 
+                    status_code=400,
                     detail=f"I cannot transfer because the following fields are not filled: {', '.join(missing_fields)}"
                 )
-            
-            # 2. Update status and flags
+
+            # 2. Update status, workflow, and flags
             cur.execute(
                 """
-                UPDATE companies 
-                SET status = 'new', is_in_kanban = TRUE, is_ready = FALSE
+                UPDATE companies
+                SET workflow_bucket = 'KANBAN', kanban_column = 'new',
+                    status = 'new', is_in_kanban = TRUE, is_ready = FALSE,
+                    updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s
                 RETURNING *
                 """,
                 (company_id,)
             )
             updated_company = cur.fetchone()
+
+            # Activity log
+            cur.execute(
+                "INSERT INTO activity_log (company_id, action, old_value, new_value) VALUES (%s, %s, %s, %s)",
+                (company_id, 'workflow_bucket_change', 'READY', 'KANBAN')
+            )
+
             conn.commit()
             return models.Company(**updated_company)
     except Exception as e:
@@ -508,11 +595,11 @@ async def bulk_move_to_kanban(company_ids: list[int], current_user: models.User 
         with conn.cursor() as cur:
             for company_id in company_ids:
                 # 1. Fetch
-                cur.execute("SELECT * FROM companies WHERE id = %s AND is_ready = TRUE", (company_id,))
+                cur.execute("SELECT * FROM companies WHERE id = %s AND workflow_bucket = 'READY'", (company_id,))
                 ready_comp = cur.fetchone()
                 if not ready_comp:
                     continue
-                
+
                 # Validation
                 missing_fields = []
                 if not ready_comp.get('name'): missing_fields.append("Company Name")
@@ -520,18 +607,20 @@ async def bulk_move_to_kanban(company_ids: list[int], current_user: models.User 
                 if not ready_comp.get('contact_name'): missing_fields.append("Contact Name")
                 if not ready_comp.get('contact_surname'): missing_fields.append("Surname")
                 if not ready_comp.get('contact_phone'): missing_fields.append("Phone Number")
-                
+
                 if missing_fields:
                     raise HTTPException(
-                        status_code=400, 
+                        status_code=400,
                         detail=f"I cannot transfer because the following fields are not filled: {', '.join(missing_fields)}"
                     )
-                
+
                 # 2. Update
                 cur.execute(
                     """
-                    UPDATE companies 
-                    SET status = 'new', is_in_kanban = TRUE, is_ready = FALSE
+                    UPDATE companies
+                    SET workflow_bucket = 'KANBAN', kanban_column = 'new',
+                        status = 'new', is_in_kanban = TRUE, is_ready = FALSE,
+                        updated_at = CURRENT_TIMESTAMP
                     WHERE id = %s
                     RETURNING *
                     """,
@@ -539,7 +628,13 @@ async def bulk_move_to_kanban(company_ids: list[int], current_user: models.User 
                 )
                 updated_company = cur.fetchone()
                 moved_companies.append(models.Company(**updated_company))
-            
+
+                # Activity log
+                cur.execute(
+                    "INSERT INTO activity_log (company_id, action, old_value, new_value) VALUES (%s, %s, %s, %s)",
+                    (company_id, 'workflow_bucket_change', 'READY', 'KANBAN')
+                )
+
             conn.commit()
             return moved_companies
     except Exception as e:
@@ -610,7 +705,7 @@ async def bulk_enrich_ready_companies(updates: list[models.ReadyCompanyEnrich], 
                     continue
                     
                 values.append(update.id)
-                query = f"UPDATE companies SET {', '.join(update_fields)} WHERE id = %s AND is_ready = TRUE"
+                query = f"UPDATE companies SET {', '.join(update_fields)} WHERE id = %s AND workflow_bucket = 'READY'"
                 
                 cur.execute(query, values)
                 
@@ -653,11 +748,11 @@ async def archive_ready_company(company_id: int, current_user: models.User = Dep
     try:
         with conn.cursor() as cur:
             # 1. Fetch from companies
-            cur.execute("SELECT * FROM companies WHERE id = %s AND is_ready = TRUE", (company_id,))
+            cur.execute("SELECT * FROM companies WHERE id = %s AND workflow_bucket = 'READY'", (company_id,))
             ready_comp = cur.fetchone()
             if not ready_comp:
                 raise HTTPException(status_code=404, detail="Ready company not found")
-            
+
             # 2. Insert into archived_companies
             cur.execute(
                 """
@@ -665,14 +760,20 @@ async def archive_ready_company(company_id: int, current_user: models.User = Dep
                 VALUES (%s, %s, %s, %s, %s)
                 RETURNING *
                 """,
-                (ready_comp['name'], ready_comp['location'], ready_comp['contact_name'], 
+                (ready_comp['name'], ready_comp['location'], ready_comp['contact_name'],
                  ready_comp['contact_surname'], ready_comp['contact_phone'])
             )
             archived_company = cur.fetchone()
-            
-            # 3. Delete from companies
+
+            # 3. Activity log before deletion
+            cur.execute(
+                "INSERT INTO activity_log (company_id, action, old_value, new_value) VALUES (%s, %s, %s, %s)",
+                (company_id, 'archived', 'READY', 'ARCHIVED')
+            )
+
+            # 4. Delete from companies
             cur.execute("DELETE FROM companies WHERE id = %s", (company_id,))
-            
+
             conn.commit()
             return models.ArchivedCompany(**archived_company)
     except Exception as e:
@@ -691,7 +792,7 @@ async def archive_lifecycle_company(company_id: int, current_user: models.User =
             comp = cur.fetchone()
             if not comp:
                 raise HTTPException(status_code=404, detail="Company not found")
-            
+
             # 2. Insert into archived_companies
             cur.execute(
                 """
@@ -699,14 +800,20 @@ async def archive_lifecycle_company(company_id: int, current_user: models.User =
                 VALUES (%s, %s, %s, %s, %s)
                 RETURNING *
                 """,
-                (comp['name'], comp['location'], comp['contact_name'], 
+                (comp['name'], comp['location'], comp['contact_name'],
                  comp['contact_surname'], comp['contact_phone'])
             )
             archived_company = cur.fetchone()
-            
-            # 3. Delete from companies
+
+            # 3. Activity log before deletion
+            cur.execute(
+                "INSERT INTO activity_log (company_id, action, old_value, new_value) VALUES (%s, %s, %s, %s)",
+                (company_id, 'archived', comp.get('workflow_bucket', 'UNKNOWN'), 'ARCHIVED')
+            )
+
+            # 4. Delete from companies
             cur.execute("DELETE FROM companies WHERE id = %s", (company_id,))
-            
+
             conn.commit()
             return models.ArchivedCompany(**archived_company)
     except Exception as e:
@@ -750,11 +857,21 @@ async def bulk_restore_archived_companies(company_ids: list[int], current_user: 
             
             restored_count = 0
             for company in companies:
-                # Insert into companies (Kanban) with 'new' status and is_in_kanban=True
+                # Insert into companies (Kanban) with 'new' status, workflow_bucket=KANBAN
                 cur.execute(
-                    "INSERT INTO companies (name, location, contact_name, contact_surname, contact_phone, status, is_in_kanban) VALUES (%s, %s, %s, %s, %s, 'new', TRUE)",
+                    """INSERT INTO companies
+                       (name, location, contact_name, contact_surname, contact_phone,
+                        status, is_in_kanban, workflow_bucket, kanban_column)
+                       VALUES (%s, %s, %s, %s, %s, 'new', TRUE, 'KANBAN', 'new')
+                       RETURNING id""",
                     (company['company_name'], company['location'], company['name'], company['sur_name'], company['phone_number'])
                 )
+                new_row = cur.fetchone()
+                if new_row:
+                    cur.execute(
+                        "INSERT INTO activity_log (company_id, action, old_value, new_value) VALUES (%s, %s, %s, %s)",
+                        (new_row['id'], 'restored', 'ARCHIVED', 'KANBAN')
+                    )
                 restored_count += 1
             
             # Delete from archived_companies
@@ -765,5 +882,90 @@ async def bulk_restore_archived_companies(company_ids: list[int], current_user: 
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+# --- Centralized Workflow Endpoints ---
+
+@app.patch("/companies/{company_id}/workflow", response_model=models.Company)
+async def update_company_workflow(company_id: int, workflow_update: models.WorkflowUpdate, current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            # Fetch current state
+            cur.execute("SELECT * FROM companies WHERE id = %s", (company_id,))
+            company = cur.fetchone()
+            if not company:
+                raise HTTPException(status_code=404, detail="Company not found")
+
+            old_bucket = company['workflow_bucket']
+            old_column = company['kanban_column']
+
+            new_bucket = workflow_update.workflow_bucket or old_bucket
+            new_column = workflow_update.kanban_column
+
+            # Validation
+            if new_bucket not in models.VALID_WORKFLOW_BUCKETS:
+                raise HTTPException(status_code=400, detail=f"Invalid workflow_bucket: {new_bucket}. Must be one of: {', '.join(models.VALID_WORKFLOW_BUCKETS)}")
+
+            if new_bucket == 'KANBAN':
+                if new_column is None:
+                    new_column = 'new'  # default kanban column
+                if new_column not in models.VALID_KANBAN_COLUMNS:
+                    raise HTTPException(status_code=400, detail=f"Invalid kanban_column: {new_column}. Must be one of: {', '.join(models.VALID_KANBAN_COLUMNS)}")
+            else:
+                new_column = None  # clear kanban column when not in kanban
+
+            # Sync legacy flags
+            is_ready = (new_bucket == 'READY')
+            is_in_kanban = (new_bucket == 'KANBAN')
+            status_val = new_column or 'new'
+
+            cur.execute(
+                """
+                UPDATE companies
+                SET workflow_bucket = %s, kanban_column = %s,
+                    is_ready = %s, is_in_kanban = %s, status = %s,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                RETURNING *
+                """,
+                (new_bucket, new_column, is_ready, is_in_kanban, status_val, company_id)
+            )
+            updated = cur.fetchone()
+
+            # Activity log
+            if old_bucket != new_bucket:
+                cur.execute(
+                    "INSERT INTO activity_log (company_id, action, old_value, new_value) VALUES (%s, %s, %s, %s)",
+                    (company_id, 'workflow_bucket_change', old_bucket, new_bucket)
+                )
+            if new_bucket == 'KANBAN' and old_column != new_column:
+                cur.execute(
+                    "INSERT INTO activity_log (company_id, action, old_value, new_value) VALUES (%s, %s, %s, %s)",
+                    (company_id, 'kanban_column_change', old_column, new_column)
+                )
+
+            conn.commit()
+            return models.Company(**updated)
+    except Exception as e:
+        conn.rollback()
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
+@app.get("/companies/{company_id}/activity-log", response_model=list[models.ActivityLog])
+async def get_company_activity_log(company_id: int, current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT * FROM activity_log WHERE company_id = %s ORDER BY created_at DESC LIMIT 50",
+                (company_id,)
+            )
+            logs = cur.fetchall()
+            return [models.ActivityLog(**log) for log in logs]
     finally:
         conn.close()

@@ -4,7 +4,7 @@ import * as React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { CalendarIcon, ClockIcon, UserIcon, MapPinIcon, MicIcon, Trash2Icon } from "lucide-react"
+import { ClockIcon, UserIcon, MapPinIcon, MicIcon, RefreshCwIcon } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { toast } from "sonner"
 
@@ -17,9 +17,10 @@ type Company = {
     employees: number
     status: CompanyStatus
     scheduledAt: string
+    contactName: string
+    contactSurname: string
+    contactPhone: string
 }
-
-const QUEUE_STORAGE_KEY = "voice-ai-queue-state"
 
 const formatCallDate = (isoString: string) => {
     if (!isoString) return ""
@@ -42,39 +43,53 @@ export function VoiceAIQueue() {
     const { t } = useLanguage()
     const [mounted, setMounted] = React.useState(false)
     const [companies, setCompanies] = React.useState<Company[]>([])
+    const [isLoading, setIsLoading] = React.useState(false)
+
+    const fetchQueue = React.useCallback(async () => {
+        setIsLoading(true)
+        try {
+            const token = localStorage.getItem("token")
+            if (!token) return
+
+            const response = await fetch("http://localhost:8000/companies/call-queue", {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                const formatted: Company[] = data.map((c: any) => ({
+                    id: String(c.id),
+                    name: c.name,
+                    location: c.location || "",
+                    employees: c.employees || 0,
+                    status: (c.kanban_column || c.status) as CompanyStatus,
+                    scheduledAt: c.scheduled_at || "",
+                    contactName: c.contact_name || "",
+                    contactSurname: c.contact_surname || "",
+                    contactPhone: c.contact_phone || "",
+                }))
+                // Sort by scheduledAt (earliest first)
+                formatted.sort((a, b) =>
+                    new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
+                )
+                setCompanies(formatted)
+            }
+        } catch (error) {
+            console.error("Failed to fetch call queue:", error)
+        } finally {
+            setIsLoading(false)
+        }
+    }, [])
 
     React.useEffect(() => {
         setMounted(true)
-        const loadData = () => {
-            const saved = localStorage.getItem(QUEUE_STORAGE_KEY)
-            if (saved) {
-                try {
-                    const parsed = JSON.parse(saved)
-                    // Sort by scheduledAt (earliest first)
-                    const sorted = [...parsed].sort((a, b) =>
-                        new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
-                    )
-                    setCompanies(sorted)
-                } catch (e) {
-                    console.error("Failed to load queue data", e)
-                }
-            }
-        }
+        fetchQueue()
+    }, [fetchQueue])
 
-        loadData()
-        // Listen for storage changes in other tabs/components
-        const handleStorageChange = (e: StorageEvent) => {
-            if (e.key === QUEUE_STORAGE_KEY) loadData()
-        }
-        window.addEventListener('storage', handleStorageChange)
-        return () => window.removeEventListener('storage', handleStorageChange)
-    }, [])
-
-    const clearQueue = () => {
-        localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify([]))
-        setCompanies([])
-        // Dispatch event for other tabs
-        window.dispatchEvent(new Event('storage'))
+    const handleRefresh = () => {
+        fetchQueue()
         toast.success(t('success'))
     }
 
@@ -90,16 +105,21 @@ export function VoiceAIQueue() {
                 <Button
                     variant="outline"
                     size="sm"
-                    onClick={clearQueue}
-                    className="rounded-xl border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 transition-all active:scale-95"
+                    onClick={handleRefresh}
+                    disabled={isLoading}
+                    className="rounded-xl transition-all active:scale-95"
                 >
-                    <Trash2Icon className="h-4 w-4 mr-2" />
-                    {t('clearQueue')}
+                    <RefreshCwIcon className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                    {t('refreshQueue')}
                 </Button>
             </CardHeader>
             <CardContent className="px-0">
                 <div className="space-y-4">
-                    {companies.length === 0 ? (
+                    {isLoading && companies.length === 0 ? (
+                        <div className="text-center py-12 bg-muted/20 rounded-2xl border-2 border-dashed border-muted">
+                            <p className="text-muted-foreground">{t('loading')}</p>
+                        </div>
+                    ) : companies.length === 0 ? (
                         <div className="text-center py-12 bg-muted/20 rounded-2xl border-2 border-dashed border-muted">
                             <p className="text-muted-foreground">{t('queueEmpty')}</p>
                         </div>
@@ -123,7 +143,7 @@ export function VoiceAIQueue() {
                                             </div>
                                             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                                 <UserIcon className="h-3 w-3" />
-                                                {company.employees} {t('employees')}
+                                                {company.contactName} {company.contactSurname}
                                             </div>
                                             {getStatusBadge(company.status, t)}
                                         </div>
@@ -152,4 +172,3 @@ export function VoiceAIQueue() {
         </Card>
     )
 }
-

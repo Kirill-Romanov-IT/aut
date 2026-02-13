@@ -63,8 +63,34 @@ def init_db():
                 cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(255);")
                 cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS is_ready BOOLEAN DEFAULT FALSE;")
                 cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS is_in_kanban BOOLEAN DEFAULT FALSE;")
+                # Centralized workflow columns
+                cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS workflow_bucket VARCHAR(10) DEFAULT 'ALL';")
+                cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS kanban_column VARCHAR(30) DEFAULT NULL;")
+                cur.execute("ALTER TABLE companies ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;")
             except Exception:
                 pass # Should not fail with IF NOT EXISTS, but being safe.
+
+            # Backfill workflow_bucket from legacy boolean flags (idempotent)
+            cur.execute("""
+                UPDATE companies SET workflow_bucket = 'KANBAN', kanban_column = status
+                WHERE is_in_kanban = TRUE AND workflow_bucket = 'ALL'
+            """)
+            cur.execute("""
+                UPDATE companies SET workflow_bucket = 'READY'
+                WHERE is_ready = TRUE AND is_in_kanban = FALSE AND workflow_bucket = 'ALL'
+            """)
+
+            # Activity log for tracking workflow transitions
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS activity_log (
+                    id SERIAL PRIMARY KEY,
+                    company_id INTEGER NOT NULL,
+                    action VARCHAR(100) NOT NULL,
+                    old_value VARCHAR(255),
+                    new_value VARCHAR(255),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            """)
 
             # Create company_column_mappings table
             cur.execute("""
