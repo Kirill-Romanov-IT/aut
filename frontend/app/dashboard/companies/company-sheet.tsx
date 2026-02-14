@@ -1,6 +1,8 @@
 "use client"
 
 import * as React from "react"
+import { formatCompanyName } from "@/lib/utils"
+import { useLanguage } from "@/components/language-provider"
 import {
     Sheet,
     SheetContent,
@@ -46,6 +48,7 @@ export function CompanySheet({
     onDelete,
 }: CompanySheetProps) {
     const [formData, setFormData] = React.useState<Company | null>(null)
+    const { t } = useLanguage()
 
     React.useEffect(() => {
         setFormData(company)
@@ -62,7 +65,7 @@ export function CompanySheet({
         <Sheet open={isOpen} onOpenChange={onClose}>
             <SheetContent side="right" className="sm:max-w-[400px]">
                 <SheetHeader>
-                    <SheetTitle>{company?.id ? "Edit Company" : "Add Company"}</SheetTitle>
+                    <SheetTitle>{company?.id ? `${t('editing')} ${formatCompanyName(company.name)}` : t('addCompany')}</SheetTitle>
                     <SheetDescription>
                         Modify company details here. Click save when you're done.
                     </SheetDescription>

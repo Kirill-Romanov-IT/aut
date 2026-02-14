@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { ClockIcon, UserIcon, MapPinIcon, MicIcon, Trash2Icon, SendIcon } from "lucide-react"
 import { useLanguage } from "@/components/language-provider"
 import { toast } from "sonner"
+import { formatCompanyName } from "@/lib/utils"
 
 type CompanyStatus = "new" | "not-responding" | "ivr" | "hang-up" | "dm-found-call-time" | "sent"
 
@@ -180,10 +181,10 @@ export function VoiceAIQueue() {
                             >
                                 <div className="flex items-center gap-4 mb-4 md:mb-0">
                                     <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
-                                        {company.name.charAt(0)}
+                                        {formatCompanyName(company.name).charAt(0)}
                                     </div>
                                     <div>
-                                        <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">{company.name}</h3>
+                                        <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">{formatCompanyName(company.name)}</h3>
                                         <div className="flex flex-wrap items-center gap-3 mt-1">
                                             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                                 <MapPinIcon className="h-3 w-3" />

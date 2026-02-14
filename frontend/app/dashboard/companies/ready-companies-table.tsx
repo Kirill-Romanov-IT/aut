@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
 import { useLanguage } from "@/components/language-provider"
+import { formatCompanyName } from "@/lib/utils"
 
 import { ReadyCompanyDialog } from "./ready-company-dialog"
 
@@ -494,7 +495,7 @@ export function ReadyCompaniesTable({
                                     className="group cursor-pointer hover:bg-muted/50 transition-colors"
                                     onClick={() => setSelectedDetailCompany(company)}
                                 >
-                                    <TableCell className="font-medium">{company.company_name}</TableCell>
+                                    <TableCell className="font-medium">{formatCompanyName(company.company_name)}</TableCell>
                                     <TableCell>{company.location || t('notAvailable')}</TableCell>
                                     <TableCell>{company.name || t('notAvailable')}</TableCell>
                                     <TableCell>{company.sur_name || t('notAvailable')}</TableCell>

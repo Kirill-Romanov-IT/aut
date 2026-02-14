@@ -112,7 +112,7 @@ class ArchivedCompany(BaseModel):
     archived_at: Optional[datetime] = None
 
 VALID_WORKFLOW_BUCKETS = ('ALL', 'READY', 'KANBAN')
-VALID_KANBAN_COLUMNS = ('new', 'not-responding', 'ivr', 'hang-up', 'dm-found-call-time')
+VALID_KANBAN_COLUMNS = ('new', 'not-responding', 'ivr', 'hang-up', 'dm-found-call-time', 'voicemail')
 
 class WorkflowUpdate(BaseModel):
     workflow_bucket: Optional[str] = None

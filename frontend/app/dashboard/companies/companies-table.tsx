@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button"
 import { Plus, MoreVertical, Trash2, ArrowUpDown, ChevronUp, ChevronDown, Search } from "lucide-react"
 import { Company, CompanySheet } from "./company-sheet"
 import { Checkbox } from "@/components/ui/checkbox"
+import { formatCompanyName } from "@/lib/utils"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -637,7 +638,7 @@ export function CompaniesTable({
                                     className="group cursor-pointer transition-colors hover:bg-muted/50"
                                     onClick={() => handleRowClick(company)}
                                 >
-                                    <TableCell className="font-medium">{company.name}</TableCell>
+                                    <TableCell className="font-medium">{formatCompanyName(company.name)}</TableCell>
                                     <TableCell>{company.employees}</TableCell>
                                     <TableCell>{company.location}</TableCell>
                                     <TableCell className="text-muted-foreground">

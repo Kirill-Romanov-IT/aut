@@ -29,6 +29,7 @@ export const translations = {
         // Common Actions
         add: "Add",
         edit: "Edit",
+        editing: "Editing",
         delete: "Delete",
         save: "Save",
         cancel: "Cancel",
@@ -100,6 +101,7 @@ export const translations = {
         movingToKanban: "Moving to Kanban...",
         close: "Close",
         ivr: "IVR",
+        voicemail: "Voicemail",
 
         // Analytics & Cards
         totalRevenue: "Total Revenue",
@@ -199,6 +201,7 @@ export const translations = {
         // Common Actions
         add: "Добавить",
         edit: "Изменить",
+        editing: "Редактирование",
         delete: "Удалить",
         save: "Сохранить",
         cancel: "Отмена",
@@ -270,6 +273,7 @@ export const translations = {
         movingToKanban: "Перенос в Kanban...",
         close: "Закрыть",
         ivr: "IVR",
+        voicemail: "Голосовая почта",
 
         // Analytics & Cards
         totalRevenue: "Общая выручка",

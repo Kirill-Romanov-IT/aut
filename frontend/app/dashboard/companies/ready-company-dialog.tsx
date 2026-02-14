@@ -13,8 +13,9 @@ import { Badge } from "@/components/ui/badge"
 import { MapPinIcon, UserIcon, PhoneIcon, PencilIcon, CheckIcon, XIcon, Building2Icon } from "lucide-react"
 import { toast } from "sonner"
 import { Input } from "@/components/ui/input"
-import { useRouter } from "next/navigation"
 import { useLanguage } from "@/components/language-provider"
+import { formatCompanyName } from "@/lib/utils"
+import { useRouter } from "next/navigation"
 
 export type ReadyCompany = {
     id: number | string
@@ -152,7 +153,7 @@ export function ReadyCompanyDialog({
                     ) : (
                         <div className="flex items-center justify-between flex-1 group/field">
                             <span className="text-sm font-medium text-foreground/80">
-                                {value}
+                                {field === 'company_name' ? formatCompanyName(value) : value}
                             </span>
                             <button
                                 onClick={() => handleStartEdit(field as string, localCompany[field] as string || "")}
@@ -175,12 +176,12 @@ export function ReadyCompanyDialog({
                     <div className="bg-primary/5 p-8 flex flex-col items-center text-center gap-6 rounded-t-2xl">
                         <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
                             <span className="text-2xl font-bold text-primary">
-                                {localCompany.company_name.charAt(0)}
+                                {formatCompanyName(localCompany.company_name).charAt(0)}
                             </span>
                         </div>
                         <div className="space-y-2">
                             <DialogTitle className="text-xl font-bold tracking-tight">
-                                {localCompany.company_name}
+                                {formatCompanyName(localCompany.company_name)}
                             </DialogTitle>
                             <DialogDescription className="sr-only">
                                 {t('companyDetails')}: {localCompany.company_name}

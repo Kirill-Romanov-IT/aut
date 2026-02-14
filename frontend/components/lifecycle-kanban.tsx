@@ -39,9 +39,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { useLanguage } from "@/components/language-provider"
+import { formatCompanyName } from "@/lib/utils"
 
 // --- Types ---
-type CompanyStatus = "new" | "not-responding" | "ivr" | "hang-up" | "dm-found-call-time"
+type CompanyStatus = "new" | "not-responding" | "ivr" | "voicemail" | "hang-up" | "dm-found-call-time"
 
 type Company = {
     id: string
@@ -112,7 +113,7 @@ function SortableCompanyCard({ company, onClick, onArchive }: { company: Company
             >
                 <CardHeader className="p-4 pb-2">
                     <div className="flex justify-between items-start">
-                        <CardTitle className="text-sm font-medium">{company.name}</CardTitle>
+                        <CardTitle className="text-sm font-medium">{formatCompanyName(company.name)}</CardTitle>
                         <button
                             onClick={(e) => {
                                 e.stopPropagation()
@@ -177,7 +178,7 @@ function DragOverlayCard({ company }: { company: Company }) {
         <Card className="cursor-grabbing shadow-lg w-[260px] opacity-90 ring-2 ring-primary">
             <CardHeader className="p-4 pb-2">
                 <div className="flex justify-between items-start">
-                    <CardTitle className="text-sm font-medium">{company.name}</CardTitle>
+                    <CardTitle className="text-sm font-medium">{formatCompanyName(company.name)}</CardTitle>
 
                 </div>
                 <CardDescription className="text-[10px] line-clamp-1">{company.location}</CardDescription>
@@ -214,6 +215,7 @@ export function LifecycleKanban() {
         { id: "new", title: t('newCompanies') },
         { id: "not-responding", title: t('noAnswer') },
         { id: "ivr", title: t('ivr') },
+        { id: "voicemail", title: t('voicemail') },
         { id: "hang-up", title: t('reachedButHangsUp') },
         { id: "dm-found-call-time", title: t('decisionMakerFound') }
     ]
@@ -523,7 +525,7 @@ export function LifecycleKanban() {
 
     if (!mounted) {
         return (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 h-full items-start opacity-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 h-full items-start opacity-0">
                 {columns.map(col => (
                     <div key={col.id} className="rounded-xl bg-muted/40 p-4 border h-[500px]" />
                 ))}
@@ -556,7 +558,7 @@ export function LifecycleKanban() {
                 onDragOver={handleDragOver}
                 onDragEnd={handleDragEnd}
             >
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 h-full items-start animate-in fade-in duration-500">
+                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 h-full items-start animate-in fade-in duration-500">
                     {columns.map(col => (
                         <KanbanColumn
                             key={col.id}
@@ -602,11 +604,11 @@ export function LifecycleKanban() {
 
                             <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
                                 <span className="text-2xl font-bold text-primary">
-                                    {selectedCompany?.name.charAt(0)}
+                                    {formatCompanyName(selectedCompany?.name || "").charAt(0)}
                                 </span>
                             </div>
                             <div className="space-y-2">
-                                <DialogTitle className="text-xl font-bold tracking-tight">{selectedCompany?.name}</DialogTitle>
+                                <DialogTitle className="text-xl font-bold tracking-tight">{formatCompanyName(selectedCompany?.name || "")}</DialogTitle>
                                 <DialogDescription className="sr-only">
                                     Detailed information about {selectedCompany?.name}
                                 </DialogDescription>
@@ -615,6 +617,7 @@ export function LifecycleKanban() {
                                         {selectedCompany?.status === 'new' && t('new')}
                                         {selectedCompany?.status === 'not-responding' && t('noAnswer')}
                                         {selectedCompany?.status === 'ivr' && t('ivr')}
+                                        {selectedCompany?.status === 'voicemail' && t('voicemail')}
                                         {selectedCompany?.status === 'hang-up' && t('reachedButHangsUp')}
                                         {selectedCompany?.status === 'dm-found-call-time' && t('decisionMakerFound')}
                                     </Badge>
