@@ -248,11 +248,23 @@ export function LifecycleKanban() {
         }
     }
 
-    // Load from backend on mount
+    // Load from backend on mount and poll every 5 seconds
     React.useEffect(() => {
         fetchCompanies()
         setMounted(true)
-    }, [])
+
+        const intervalId = setInterval(() => {
+            // Only fetch if not currently dragging to avoid state conflicts
+            if (!activeId) {
+                fetchCompanies()
+            }
+        }, 5000)
+
+        return () => clearInterval(intervalId)
+    }, [activeId]) // Re-create interval if activeId changes (to pause/resume) or just check ref. 
+    // Actually, simpler to just check activeId inside, but activeId is state. 
+    // To avoid effect re-running too often, better to use a ref for activeId or just depend on it.
+    // Since activeId changes rarely (start/end drag), depend on it is fine.
 
     const generateQueue = async () => {
         const loadingToast = toast.loading(t('loading'))

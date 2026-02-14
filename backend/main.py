@@ -1112,3 +1112,72 @@ async def get_company_activity_log(company_id: int, current_user: models.User = 
             return [models.ActivityLog(**log) for log in logs]
     finally:
         conn.close()
+
+@app.post("/companies/update-status-by-phone", response_model=models.Company)
+async def update_company_status_by_phone(update: models.CompanyStatusUpdateByPhone):
+    """
+    Update company status in Kanban based on phone number (for external integrations like 'find' service).
+    No authentication required for this internal service endpoint (or could add API key later).
+    """
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            # 1. Find company by phone number (checking multiple phone fields if necessary, usually contact_phone)
+            # Normalize phone number if needed, here assuming exact match or simple stripping of non-digits might be needed
+            # For now, let's try exact match on contact_phone
+            cur.execute("SELECT * FROM companies WHERE contact_phone = %s OR contact_phone = %s", (update.phone_number, "+" + update.phone_number))
+            company = cur.fetchone()
+            
+            if not company:
+                # Try creating a lenient search if exact match fails
+                # e.g. if input is +1619... and db has 619...
+                 cur.execute("SELECT * FROM companies WHERE contact_phone LIKE %s", ("%" + update.phone_number[-10:],))
+                 company = cur.fetchone()
+
+            if not company:
+                # If still not found, we can't update
+                raise HTTPException(status_code=404, detail=f"Company with phone {update.phone_number} not found")
+
+            company_id = company['id']
+            old_column = company['kanban_column']
+            old_bucket = company['workflow_bucket']
+
+            # 2. Validate new status
+            # Map the status from 'find' (Stage) to 'app' (Kanban Column)
+            
+            new_status = update.status
+            if new_status not in models.VALID_KANBAN_COLUMNS:
+                # Validate against valid columns
+                raise HTTPException(status_code=400, detail=f"Invalid status: {new_status}. Valid: {models.VALID_KANBAN_COLUMNS}")
+
+            # 3. Update company
+            # We move it to KANBAN bucket if not already there, and set status/column
+            
+            cur.execute(
+                """
+                UPDATE companies
+                SET workflow_bucket = 'KANBAN', kanban_column = %s, status = %s, is_in_kanban = TRUE, updated_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                RETURNING *
+                """,
+                (new_status, new_status, company_id)
+            )
+            updated_company = cur.fetchone()
+
+            # 4. Activity log
+            if old_column != new_status or old_bucket != 'KANBAN':
+                 cur.execute(
+                    "INSERT INTO activity_log (company_id, action, old_value, new_value) VALUES (%s, %s, %s, %s)",
+                    (company_id, 'status_change_by_phone', f"{old_bucket}/{old_column}", f"KANBAN/{new_status}")
+                )
+            
+            conn.commit()
+            return models.Company(**updated_company)
+            
+    except Exception as e:
+        conn.rollback()
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()

@@ -61,6 +61,10 @@ class Company(BaseModel):
 class CompanyStatusUpdate(BaseModel):
     status: str
 
+class CompanyStatusUpdateByPhone(BaseModel):
+    phone_number: str
+    status: str
+
 class CompanyEnrich(BaseModel):
     id: int
     employees: int
