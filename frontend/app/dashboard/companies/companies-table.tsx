@@ -118,6 +118,20 @@ export function CompaniesTable({
         setIsSheetOpen(true)
     }
 
+    const formatError = (detail: any): string => {
+        if (typeof detail === 'string') return detail
+        if (Array.isArray(detail)) {
+            return detail.map(err => {
+                const field = err.loc ? err.loc[err.loc.length - 1] : ''
+                return `${field}: ${err.msg}`
+            }).join(', ')
+        }
+        if (typeof detail === 'object' && detail !== null) {
+            return JSON.stringify(detail)
+        }
+        return t('error')
+    }
+
     const handleSave = async (updatedCompany: Company) => {
         const loadingToast = toast.loading(t('loading'))
         try {
@@ -127,11 +141,13 @@ export function CompaniesTable({
                 return
             }
 
-            // Ensure ID is sent correctly (backend expects int)
-            const companyId = typeof updatedCompany.id === 'string' ? parseInt(updatedCompany.id) : updatedCompany.id
+            const isNew = !updatedCompany.id
+            const url = isNew
+                ? "http://localhost:8000/companies"
+                : `http://localhost:8000/companies/${updatedCompany.id}`
 
-            const response = await fetch(`http://localhost:8000/companies/${companyId}`, {
-                method: "PUT",
+            const response = await fetch(url, {
+                method: isNew ? "POST" : "PUT",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`,
@@ -148,10 +164,11 @@ export function CompaniesTable({
                 onUpdate()
             } else {
                 const errorData = await response.json()
-                toast.error(errorData.detail || t('error'))
+                const errorMessage = formatError(errorData.detail)
+                toast.error(errorMessage)
             }
         } catch (error) {
-            console.error("Update error:", error)
+            console.error("Save error:", error)
             toast.error(t('error'))
         } finally {
             toast.dismiss(loadingToast)

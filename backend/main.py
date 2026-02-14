@@ -224,6 +224,35 @@ async def upload_companies(file: UploadFile = File(...), current_user: models.Us
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         conn.close()
+@app.post("/companies", response_model=models.Company, status_code=status.HTTP_201_CREATED)
+async def create_company(company: models.CompanyCreate, current_user: models.User = Depends(get_current_user)):
+    conn = db.get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            # Check for duplicates by name
+            cur.execute("SELECT id FROM companies WHERE name = %s", (company.name,))
+            if cur.fetchone():
+                raise HTTPException(status_code=400, detail="Company with this name already exists")
+
+            cur.execute(
+                """
+                INSERT INTO companies (name, employees, location, workflow_bucket, status)
+                VALUES (%s, %s, %s, 'ALL', 'new')
+                RETURNING *
+                """,
+                (company.name, company.employees, company.location)
+            )
+            new_company = cur.fetchone()
+            conn.commit()
+            return models.Company(**new_company)
+    except Exception as e:
+        conn.rollback()
+        if isinstance(e, HTTPException):
+            raise e
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        conn.close()
+
 
 @app.get("/companies", response_model=list[models.Company])
 async def get_companies(current_user: models.User = Depends(get_current_user)):
@@ -807,8 +836,13 @@ async def bulk_enrich_ready_companies(updates: list[models.ReadyCompanyEnrich], 
                     values.append(update.sur_name)
                     
                 if update.phone_number is not None:
-                    update_fields.append("contact_phone = %s")
-                    values.append(update.phone_number)
+                    # Formalize the phone number: remove non-digits and prepend '1' if missing
+                    digits = "".join(filter(str.isdigit, update.phone_number))
+                    if digits:
+                        if not digits.startswith("1"):
+                            digits = "1" + digits
+                        update_fields.append("contact_phone = %s")
+                        values.append(digits)
                 
                 if not update_fields:
                     continue
