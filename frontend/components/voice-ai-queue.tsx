@@ -154,10 +154,9 @@ export function VoiceAIQueue() {
                         size="sm"
                         onClick={handleSendList}
                         disabled={isSending || companies.length === 0}
-                        className="relative rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-lg shadow-violet-500/25 hover:shadow-violet-500/40 transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:hover:scale-100 disabled:shadow-none px-5"
+                        className="h-8 rounded-md bg-[#020817] text-white hover:bg-[#020817]/90 transition-all active:scale-95 disabled:opacity-50 px-4 flex items-center gap-2 text-sm font-medium border-none shadow-sm"
                     >
-                        <span className="absolute inset-0 rounded-xl bg-gradient-to-r from-white/10 to-transparent opacity-0 hover:opacity-100 transition-opacity" />
-                        <SendIcon className={`h-4 w-4 mr-2 ${isSending ? 'animate-pulse' : ''}`} />
+                        <SendIcon className={`h-4 w-4 ${isSending ? 'animate-pulse' : ''}`} />
                         {isSending ? t('sendingList') : t('sendList')}
                     </Button>
                 </div>
