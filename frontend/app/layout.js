@@ -1,6 +1,7 @@
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
 import { LanguageProvider } from "@/components/language-provider";
+import { AuthPing } from "@/components/auth-ping";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -24,6 +25,7 @@ export default function RootLayout({ children }) {
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <LanguageProvider>
           {children}
+          <AuthPing />
         </LanguageProvider>
         <Toaster />
       </body>
