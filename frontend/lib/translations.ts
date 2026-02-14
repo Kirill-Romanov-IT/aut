@@ -170,6 +170,7 @@ export const translations = {
         sendList: "Send List",
         sendingList: "Sending...",
         listSentSuccessfully: "List sent successfully!",
+        sent: "Sent",
     },
     ru: {
         // Navigation
@@ -339,5 +340,6 @@ export const translations = {
         sendList: "Отправить список",
         sendingList: "Отправка...",
         listSentSuccessfully: "Список успешно отправлен!",
+        sent: "Отправлено",
     }
 };

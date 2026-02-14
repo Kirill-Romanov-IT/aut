@@ -375,10 +375,10 @@ async def send_call_queue(body: SendCallQueueRequest, current_user: models.User 
 
             elevenlabs_result = resp.json()
 
-            # Clear scheduled_at so companies leave the queue view
+            # Mark as sent but keep scheduled_at so they stay in the queue view
             sent_ids = [c["id"] for c in companies]
             cur.execute(
-                "UPDATE companies SET scheduled_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ANY(%s)",
+                "UPDATE companies SET status = 'sent', updated_at = CURRENT_TIMESTAMP WHERE id = ANY(%s)",
                 (sent_ids,)
             )
 

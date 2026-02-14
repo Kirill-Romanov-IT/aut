@@ -8,7 +8,7 @@ import { ClockIcon, UserIcon, MapPinIcon, MicIcon, Trash2Icon, SendIcon } from "
 import { useLanguage } from "@/components/language-provider"
 import { toast } from "sonner"
 
-type CompanyStatus = "new" | "not-responding" | "ivr" | "hang-up" | "dm-found-call-time"
+type CompanyStatus = "new" | "not-responding" | "ivr" | "hang-up" | "dm-found-call-time" | "sent"
 
 type Company = {
     id: string
@@ -35,6 +35,7 @@ const getStatusBadge = (status: CompanyStatus, t: (key: any) => string) => {
         case "ivr": return <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">{t('ivr')}</Badge>
         case "hang-up": return <Badge variant="outline" className="border-orange-200 bg-orange-50 text-orange-700">{t('reachedButHangsUp')}</Badge>
         case "dm-found-call-time": return <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700">{t('decisionMakerFound')}</Badge>
+        case "sent": return <Badge variant="outline" className="border-gray-200 bg-gray-50 text-gray-700">{t('sent')}</Badge>
         default: return <Badge variant="outline">{status}</Badge>
     }
 }
